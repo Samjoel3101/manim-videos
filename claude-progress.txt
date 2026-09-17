@@ -1,0 +1,71 @@
+# Progress log — manim video harness (repo level)
+
+Newest entry last. One entry per session: what was built, what was tried that
+did not work, and what the next session should pick up. Per-video detail goes in
+videos/<slug>/claude-progress.txt.
+
+----------------------------------------------------------------------
+SESSION 1 — setup phase. Harness + /lib + first two scenes.
+
+BUILT
+- Environment: python 3.11 venv, manim 0.21.0, ffmpeg 6.1, cairo/pango system
+  deps. init.sh reproduces this from cold and is idempotent.
+- Repo installed editable (pyproject.toml) so scenes can `from lib import ...`
+  under `manim render` without sys.path hacks at the top of every file.
+- lib/theme.py, lib/utils.py, lib/transitions.py.
+- lib/components/: chat_ui, tokens, vectors, network, probability, transformer.
+- tests/: 54 structural tests + 10 snapshot cases with approved baselines.
+- scripts/evaluate.py (the Evaluator: lint, import, unit, snapshot, render),
+  scripts/approve_baselines.py, scripts/new_video.py.
+- .claude/hooks/guard_protected_paths.py + .claude/settings.json.
+- videos/chatgpt_message_journey/ with script.md (all 8 scenes), feature_list,
+  scenes.json, render.py, and scenes 1 (UserInput) and 3 (Tokenization) built.
+- Evaluator green on all five gates; render.py cuts a 33s draft of both scenes.
+
+WHAT WENT WRONG (and what the fix was)
+- `utils.is_in_frame` had an inverted comparison on the top edge — every
+  component "overflowed". Caught by the first structural test run, not by eye.
+  Lesson: the in_frame fixture earns its keep.
+- `VectorColumn.dim` and `ProbabilityBar.dim` both collided with attributes
+  Manim's Mobject already owns. `dim` is a property with no setter on Mobject,
+  so construction failed outright; the probability one failed at call time.
+  Renamed to `dimension` / `deemphasise`. Recorded in docs/component-guide.md.
+- VectorColumn's truncation was off by one — 7 rows for truncate_at=6.
+- ChatWindow bubbles overlapped the composer, and scrolled-off bubbles drew over
+  the title bar. Added a bottom clamp plus opacity-based clipping
+  (`visible_messages`). Found by LOOKING at the render, not by the tests.
+- AttentionMatrix column labels collided at small cell sizes. Added
+  `rotate_col_labels` to EmbeddingGrid.
+- `window.input.animate.clear()` raised "zip() argument 2 is longer than
+  argument 1" — `.animate` cannot interpolate across a structural change.
+  Composer reset is now a hard cut, which is also what a real composer does.
+- Scene 3's split-word callout braced chips across two rows and looked wrong.
+  Switched the strip to a single row.
+
+BLOCKED — NEEDS A HUMAN
+1. The protected-path hook's Bash matcher is too broad. It blocks any command
+   that both mentions a protected path and contains a redirect, so
+   `python scripts/evaluate.py 2>&1 | tail` and heredocs that merely *document*
+   the Evaluator are refused. The hook protects `.claude/hooks/`, i.e. itself,
+   so an agent session cannot fix it — that is the bootstrap flaw, and it is
+   deliberate that I did not route around it. Fix is written up as
+   feature `harness-hook-bash-false-positive`. Workaround meanwhile: use the
+   Write tool for such files, and avoid `>` redirects in commands that name a
+   protected path.
+2. No CI yet — `.github/workflows/` is protected for the same reason, so the
+   workflow has to be added by a human. Tracked as `harness-ci`. Until then the
+   Evaluator is a local gate only.
+
+KNOWN GAPS (not bugs)
+- Rendered scene lengths (10s and 18s) are well short of their script budgets
+  (45s and 55s). Expected: the budgets assume narration. Timing gets locked in a
+  voice-over pass; do not pad with empty waits.
+- Snapshot signatures cannot see small colour shifts or single-glyph typos.
+  Stated in AGENTS.md so nobody reports those as verified.
+
+NEXT SESSION
+- Highest-priority incomplete item is scene 2 (NetworkRequest) in
+  videos/chatgpt_message_journey/feature_list.json. All its /lib components
+  (network.RequestPath, PacketStream, ServerRack) already exist and are tested,
+  so it should be assembly rather than new component work.
+- Add the scene to scenes.json only once it renders green.

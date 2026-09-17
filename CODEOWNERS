@@ -1,0 +1,14 @@
+# The evaluation side of the harness. Changes here are reviewed by a human,
+# never waved through by the agent session whose work they grade.
+# See docs/architecture.md → "Why the Evaluator is protected".
+#
+# Add an owner handle after each pattern once this repo has reviewers, e.g.
+#   /scripts/evaluate.py   @your-handle
+
+/scripts/evaluate.py
+/scripts/approve_baselines.py
+/tests/conftest.py
+/tests/baselines/
+/.claude/hooks/
+/.github/workflows/
+/harness.json

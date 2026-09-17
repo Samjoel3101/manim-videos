@@ -1,0 +1,113 @@
+{
+  "scope": "Repo-level harness and /lib work. Per-video work lives in videos/<slug>/feature_list.json.",
+  "note": "Status is the only field a steady-state session flips. Never reword or delete acceptance criteria to make an item pass — that is a correctness bug, not a shortcut.",
+  "statuses": ["planned", "in_progress", "failing", "passing"],
+  "features": [
+    {
+      "id": "harness-core",
+      "priority": 1,
+      "title": "Harness core: theme, utils, transitions, Evaluator, protected paths",
+      "status": "passing",
+      "acceptance": [
+        "init.sh brings a cold machine to a working manim install, idempotently",
+        "scripts/evaluate.py runs lint, import, unit, snapshot and render gates",
+        "A PreToolUse hook blocks writes to the paths listed in harness.json",
+        "AGENTS.md is under ~100 lines and points at docs/ for depth"
+      ]
+    },
+    {
+      "id": "lib-chat-ui",
+      "priority": 2,
+      "title": "chat_ui: ChatWindow, ChatBubble, ChatInput, TypingIndicator",
+      "status": "passing",
+      "acceptance": [
+        "Messages stack, align by sender, and scroll clear of the composer",
+        "Composer types character by character and can be cleared",
+        "Structural tests plus a chat_window snapshot baseline"
+      ]
+    },
+    {
+      "id": "lib-tokens",
+      "priority": 3,
+      "title": "tokens: TokenChip, TokenStrip, simple_tokenize, fake_token_id",
+      "status": "passing",
+      "acceptance": [
+        "Leading spaces are visible and kept with the following token",
+        "Long words split into subword pieces",
+        "Token ids are deterministic across processes and machines",
+        "Structural tests plus a token_strip snapshot baseline"
+      ]
+    },
+    {
+      "id": "lib-vectors",
+      "priority": 4,
+      "title": "vectors: VectorColumn, EmbeddingGrid, VectorArrow, SemanticSpace",
+      "status": "passing",
+      "acceptance": [
+        "Long vectors elide rather than drawing every row",
+        "Grid values map to a themed colour ramp",
+        "stable_vector is deterministic for a given string",
+        "Structural tests plus vector_column and embedding_grid baselines"
+      ]
+    },
+    {
+      "id": "lib-network",
+      "priority": 5,
+      "title": "network: DeviceNode, ServerRack, Link, Packet, PacketStream, RequestPath",
+      "status": "passing",
+      "acceptance": [
+        "RequestPath lays out client, hop and server left to right",
+        "Packets animate along a link in both directions",
+        "Structural tests plus request_path and server_rack baselines"
+      ]
+    },
+    {
+      "id": "lib-probability",
+      "priority": 6,
+      "title": "probability: ProbabilityBar, ProbabilityChart, softmax",
+      "status": "passing",
+      "acceptance": [
+        "softmax normalises and responds correctly to temperature",
+        "Charts sort descending, support top_k, and can select one bar",
+        "Structural tests plus a probability_chart baseline"
+      ]
+    },
+    {
+      "id": "lib-transformer",
+      "priority": 7,
+      "title": "transformer: LayerBlock, TransformerStack, AttentionLines, AttentionMatrix, ResidualStream",
+      "status": "passing",
+      "acceptance": [
+        "Stacks elide the middle while reporting true depth",
+        "Attention line weight and opacity encode the weight",
+        "Attention matrices are causally masked and row-normalised",
+        "Structural tests plus transformer_stack and attention_matrix baselines"
+      ]
+    },
+    {
+      "id": "harness-hook-bash-false-positive",
+      "priority": 8,
+      "title": "Protected-path hook: narrow the Bash matcher to actual writes",
+      "status": "failing",
+      "blocked_on": "human — the hook protects itself, so an agent cannot fix it",
+      "acceptance": [
+        "A Bash command that merely mentions a protected path (e.g. running the Evaluator with 2>&1, or a heredoc documenting it) is allowed",
+        "A redirect whose target is a protected path is still blocked",
+        "rm/mv/cp/truncate/sed -i naming a protected path is still blocked",
+        "A test payload for each of the four cases above is recorded in the progress log"
+      ]
+    },
+    {
+      "id": "harness-ci",
+      "priority": 9,
+      "title": "CI: run the Evaluator from the base branch on every pull request",
+      "status": "planned",
+      "blocked_on": "human — .github/workflows/ is a protected path",
+      "acceptance": [
+        "A workflow installs system deps, runs init.sh and runs scripts/evaluate.py",
+        "The workflow file is owned by CODEOWNERS, not editable by an agent session",
+        "A failing gate blocks the merge"
+      ]
+    }
+  ]
+}

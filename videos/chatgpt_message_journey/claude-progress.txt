@@ -1,0 +1,40 @@
+# Progress log — What happens when you send a message to ChatGPT
+
+Newest entry last. One entry per session: what you did, what you tried that did
+not work, and what the next session should pick up.
+
+----------------------------------------------------------------------
+SETUP — project scaffolded by scripts/new_video.py.
+
+----------------------------------------------------------------------
+SESSION 1 — script written, scenes 1 and 3 built.
+
+- script.md covers all eight scenes with narration, beats and duration budgets.
+  feature_list.json has acceptance criteria per scene; scenes.json holds only
+  the scenes that actually render.
+- Scene 1 (UserInput): ChatWindow 6.6x6.2, question typed at 11 cps, ghost text
+  transforms into the user bubble, composer clears as a hard cut, typing
+  indicator pulses in the left gutter, closing caption. 10.3s rendered.
+- Scene 3 (Tokenization): sentence "How does tokenization work?" separates into
+  7 chips on one row, leading-space callout on " does", split-word callout over
+  toke/niza/tion, then token ids fade in beneath. 18.4s rendered.
+- Both reviewed frame by frame, not just by exit code.
+
+DECISIONS WORTH KNOWING
+- Scene 3 uses "tokenization" rather than "ChatGPT" in the demo sentence,
+  because simple_tokenize only splits words longer than 7 characters and the
+  scene needs a visible split. If the sentence changes, check the split still
+  happens — `_split_pieces` returns empty otherwise and the callout silently
+  disappears.
+- The scene's `_callout` / `_callout_group` brace helpers are deliberately local.
+  They are plausibly reusable, but only one scene needs them so far. Promote to
+  lib/components/ when a second scene reaches for them.
+- ChatInput.clear() was promoted into /lib during this session (with a test) —
+  every chat-driven video needs a composer reset, so it passed the bar.
+
+NEXT
+- Scene 2 (NetworkRequest) is next by priority. network.RequestPath,
+  PacketStream and ServerRack are already built and tested; this should be
+  assembly, no new components.
+- Scenes 4-8 remain planned. Their /lib components all exist, so the same
+  applies: check /lib before writing anything new.
