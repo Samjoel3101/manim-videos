@@ -25,6 +25,7 @@ from manim import (
     FadeIn,
     FadeOut,
     Flash,
+    LaggedStart,
     MoveAlongPath,
     MovingCameraScene,
     VGroup,
@@ -122,7 +123,7 @@ class TheFactory(MovingCameraScene):
             rate_func=motion.SNAP,
         )
         self.play(
-            self.packet.animate.move_to(s.rail_server_to_llm.end),
+            self.packet.animate.move_to(s.rail_server_to_model.end),
             camera.focus(self, s.llm, width=W_WIDE + 12, run_time=0.9),
             s.glow_for(s.server).animate.set_opacity(0.3),
             run_time=0.9,
@@ -326,12 +327,14 @@ class TheFactory(MovingCameraScene):
             rate_func=motion.SNAP,
         )
 
+        # Same rule as the loop below: put the courier on the rail first, then
+        # attach the trail, or its first segment is a chord from wherever it was.
+        courier.move_to(s.rail_out_of_column.end)
         trail = effects.comet(courier, color=theme.ASSISTANT, dissipating_time=0.22)
         self.add(trail)
         self.play(
             MoveAlongPath(courier, s.return_rail.path, run_time=1.9),
-            camera.focus(self, s.return_rail, width=W_WIDE + 18, run_time=1.9),
-            s.return_label.animate.set_opacity(1.0),
+            camera.focus(self, s.return_rail, width=W_WIDE + 8, run_time=1.9),
             run_time=1.9,
             rate_func=motion.MOVE,
         )
@@ -349,33 +352,58 @@ class TheFactory(MovingCameraScene):
     # ============================================= 24.6 → 30.0  the whole plant
     def beat_pull_back(self) -> None:
         s = self.set
-        loop = s.full_loop()
+        loop = s.circuit()
 
         self.play(
             camera.frame_all(self, [s.everything], pad=1.0, run_time=1.4),
-            *s.reveal_marquees(),
+            *s.reveal_labels(),
             run_time=1.4,
             rate_func=motion.FEATURE,
         )
 
         # Three more tokens run the entire circuit. Same machine, seen whole.
+        # Each node reacts as the token reaches it, rather than sitting lit.
         words_per_pass = max(1, (self.answer.word_count - 3) // 3)
         for i in range(3):
-            runner = Dot(radius=0.34, color=theme.TOKEN)
+            # Place the runner on the path BEFORE attaching its trail. A comet
+            # traces get_center from the frame it is added, so a dot still
+            # sitting at the origin draws one long chord across the set on its
+            # first frame — which is what made the trail appear to cut through
+            # the machines.
+            runner = Dot(radius=0.30, color=theme.TOKEN)
+            runner.move_to(loop.point_from_proportion(0))
             # Short dissipation: at this speed a long tail stops reading as a
             # comet and starts reading as a line drawn through the machines.
             spark = effects.comet(runner, color=theme.TOKEN, width=9,
                                   dissipating_time=0.14)
             self.add(spark, runner)
             self.play(
-                MoveAlongPath(runner, loop.path, run_time=1.15),
-                run_time=1.15,
+                MoveAlongPath(runner, loop, run_time=1.05),
+                LaggedStart(
+                    *[
+                        AnimationGroup(
+                            *effects.arrive(node, s.glow_for(node), run_time=0.14),
+                        )
+                        for node in s.nodes
+                    ],
+                    lag_ratio=0.22,
+                ),
+                run_time=1.05,
                 rate_func=motion.MOVE,
             )
             self.remove(runner, spark)
             self.play(
+                LaggedStart(
+                    *[
+                        AnimationGroup(
+                            *effects.settle(node, s.glow_for(node), run_time=0.12)
+                        )
+                        for node in s.nodes
+                    ],
+                    lag_ratio=0.12,
+                ),
                 self.answer.animate.reveal(3 + (i + 1) * words_per_pass),
-                run_time=0.15,
+                run_time=0.28,
             )
 
         self.play(self.answer.animate.reveal(self.answer.word_count), run_time=0.3)

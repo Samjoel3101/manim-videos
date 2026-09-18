@@ -93,6 +93,22 @@ def _station_with_icon():
     return station
 
 
+def _station_wide_bar():
+    """The wide short bay a vertical column uses: header left, content right."""
+    station = Station(
+        "Tokenizer",
+        subtitle="text → ids",
+        icon="binary",
+        accent=theme.TOKEN,
+        width=7.8,
+        height=2.4,
+        header_side="left",
+        shot_width=11.0,
+    )
+    station.load(TokenStrip("How does ChatGPT work?"))
+    return station.scale(1.5)
+
+
 def _station():
     station = Station("Tokenizer", subtitle="text → ids", marquee="TOKENIZE")
     station.load(TokenStrip("How does ChatGPT work?", per_line=3, show_ids=True))
@@ -154,4 +170,5 @@ CASES: dict[str, Callable[[], Mobject]] = {
     "icon_tile": _icon_tile,
     "glow": _glow,
     "station_with_icon": _station_with_icon,
+    "station_wide_bar": _station_wide_bar,
 }

@@ -167,3 +167,74 @@ STILL BLOCKED ON A HUMAN (unchanged)
 NEXT
 - voiceover-pass on the video (locks pacing against narration).
 - attention-detail beat, if the video is allowed to grow.
+
+----------------------------------------------------------------------
+SESSION 4 — vertical column layout, type system, routing guarantees.
+
+WHY
+Review of the previous cut: (1) the motion blur made everything feel like slow
+motion and shaky, especially on the pull-back; (2) the end-loop trail cut
+straight through the boxes instead of following the drawn rails; (3) the
+typography at the wide shot looked wrong; (4) the loop was spread too far.
+
+BUILT
+- lib/typography.py — type as a share of FRAME HEIGHT, with the point size
+  derived from the shot it is read in. Measured calibration: Manim's cap height
+  is linear at 0.010128 world units per point, pinned by a test so a Manim
+  upgrade cannot silently rescale the back catalogue. This is the real fix for
+  "typography looks odd": the old code had arbitrary x2.6 / x1.8 / x2.2
+  multipliers and label sizes ranged from 1.8% to 3.5% of frame height with no
+  system behind them.
+- lib/routing.py — elbow(), join(), and the clearance predicates. The travel
+  path is now BUILT FROM the drawn rails, so it cannot disagree with them, and
+  the set asserts its own geometry at construction.
+- Station gained header_side ("top"/"left") and marquee_side/role/max-width;
+  PipelineBox's title moved outside its frame.
+- Motion blur is now OFF on every profile, with the reasoning recorded in
+  harness.json next to the setting.
+- Layout rebuilt as a single vertical column per the brief: chat on top, server,
+  then the model box with tokenize/embed/attend/sample stacked, and the token
+  climbing back up the right-hand side.
+
+MEASUREMENTS WORTH KEEPING
+- Old horizontal layout: 3.59x pull-back. A compact 2x2 circuit reached 1.98x.
+  The vertical column asked for is height-bound at 16:9 and lands at 3.24x.
+  That trade was made knowingly and stated to the user with the numbers; it is
+  survivable only because type is now shot-relative.
+- A tall column leaves the sides of a 16:9 frame empty, so station marquees moved
+  to the LEFT of their bays — it fills otherwise-wasted margin and keeps the
+  stack short.
+
+WHAT WENT WRONG
+- The trail bug was NOT what it looked like. The circuit path was clean; the
+  cause was attaching the comet to a Dot *before* placing it on the path.
+  TracedPath traces get_center from the frame it is added, so the dot's first
+  traced point was wherever it happened to sit (the origin), producing one long
+  chord across the whole set that looked exactly like a routing failure. Both
+  trails now get positioned first. This is in the skill.
+- path_clears walks the true curve and therefore cannot see corner-cutting by a
+  trail's per-frame chords. Added chord_violations/assert_trail_clears, which
+  models what TracedPath actually draws, and the set asserts it at 30 frames.
+- Positioned stations with `st.bay.move_to(...)` then shifted the group, which
+  moved the bay INSIDE its own group and detached it from its header and
+  marquee. Rendered as garbled overlapping labels. One shift of the whole group
+  is correct; there is now a comment at both call sites.
+- The self-imposed zoom cap in validate() fired when the box title moved
+  outside the frame and grew the set. That is the guard working — the fix was to
+  make the set genuinely more compact, not to raise the cap.
+- Three of my own new tests were wrong rather than the code: a glow bbox
+  assertion (Manim's .width ignores stroke), a share-consistency tolerance
+  tighter than rasteriser rounding, and a readability check measured on a
+  lowercase-only string whose box is far shorter than its role's cap height.
+
+STILL BLOCKED ON A HUMAN (unchanged, fourth session)
+1. harness-hook-bash-false-positive — the protected-path hook blocks any Bash
+   command mentioning a protected path alongside a redirect, and it protects
+   itself, so no agent session can fix it.
+2. harness-ci — no CI, same self-protection reason.
+
+NEXT
+- voiceover-pass: pacing is still eyeballed against the beat sheet.
+- The chat window is small at a 3.24x pull-back; if the reply needs to be
+  readable in the final wide shot, the chat has to be larger in world space,
+  which changes every earlier shot.

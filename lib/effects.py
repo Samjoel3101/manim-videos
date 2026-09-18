@@ -132,6 +132,37 @@ def pulse(mobject: Mobject, *, scale: float = 1.06, run_time: float = motion.D_S
     return mobject.animate(run_time=run_time, rate_func=motion.SHARP).scale(scale).build()
 
 
+def arrive(node, halo=None, *, scale: float = 1.05, run_time: float = motion.D_SHORT):
+    """The "trail lands, node wakes up" beat.
+
+    The idiom this borrows from polished systems-design explainers: a payload
+    travels a connector and the machine at the far end reacts on contact, rather
+    than every box sitting lit from the first frame. Returns animations to play
+    together at the moment of arrival.
+    """
+    anims = [node.animate(run_time=run_time, rate_func=motion.SNAP).scale(scale).build()]
+    if halo is not None:
+        anims.append(
+            halo.animate(run_time=run_time, rate_func=motion.ENTER).set_opacity(1.0).build()
+        )
+    return anims
+
+
+def settle(node, halo=None, *, scale: float = 1.05, residual: float = 0.3,
+           run_time: float = motion.D_SHORT):
+    """The other half of :func:`arrive` — undo the pop, leave a residual glow."""
+    anims = [
+        node.animate(run_time=run_time, rate_func=motion.EXIT).scale(1 / scale).build()
+    ]
+    if halo is not None:
+        anims.append(
+            halo.animate(run_time=run_time, rate_func=motion.EXIT)
+            .set_opacity(residual)
+            .build()
+        )
+    return anims
+
+
 def stack_behind(scene, halo: Mobject, *others: Mobject) -> None:
     """Add ``halo`` to the scene underneath everything given."""
     scene.add(halo)
@@ -145,6 +176,8 @@ __all__ = [
     "Glowing",
     "comet",
     "pulse",
+    "arrive",
+    "settle",
     "stack_behind",
     "GLOW_LAYERS",
     "GLOW_SPREAD",

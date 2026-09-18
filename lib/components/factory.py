@@ -27,7 +27,7 @@ from manim import (
     VMobject,
 )
 
-from lib import theme, utils
+from lib import theme, typography, utils
 
 
 class Station(VGroup):
@@ -40,8 +40,13 @@ class Station(VGroup):
     icon:
         Optional vendored icon name (see ``lib.components.glyph``), drawn beside
         the title. Strongly preferred over a bare labelled box.
+    marquee_side:
+        Which side of the bay the marquee sits on: ``"up"``, ``"down"``,
+        ``"left"`` or ``"right"``. A vertical column wants ``"left"`` or
+        ``"right"``, which both keeps the stack short and puts the side margin
+        a 16:9 frame leaves empty to use.
     marquee:
-        Optional large label *below* the bay, invisible until
+        Optional large label beside the bay, invisible until
         :meth:`reveal_marquee`. It exists so the final pulled-back shot stays
         readable when the in-bay title has shrunk to a few pixels. It sits below
         rather than above so it cannot collide with an enclosing
@@ -58,8 +63,13 @@ class Station(VGroup):
         height: float = 5.4,
         accent=None,
         icon: str | None = None,
+        header_side: str = "top",
         marquee: str | None = None,
-        marquee_scale: float = 2.6,
+        marquee_side: str = "down",
+        marquee_role: str = "display",
+        marquee_max_width: float | None = None,
+        shot_width: float = 12.0,
+        wide_width: float = 25.0,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -75,11 +85,25 @@ class Station(VGroup):
             stroke_width=theme.STROKE_NORMAL,
         )
 
-        self.title_mob = utils._text(title, theme.SIZE_LABEL, theme.FG, theme.FONT_BODY)
+        # Sized for the shot it will be read in, not in absolute points — see
+        # lib/typography.py. `shot_width` is the close-up this bay gets;
+        # `wide_width` is the final pull-back the marquee has to survive.
+        self.shot_width = shot_width
+        self.wide_width = wide_width
+        self.title_mob = typography.text(
+            "heading", title, frame_width=shot_width, color=theme.FG
+        )
         utils.fit_text(self.title_mob, width - 2 * theme.PAD_MD)
 
+        self.subtitle_mob = None
+        if subtitle:
+            self.subtitle_mob = typography.text(
+                "caption", subtitle, frame_width=shot_width,
+                color=theme.FG_MUTED, mono=True,
+            )
+
         # An icon beside the title says what the station *is* before the viewer
-        # has read the word. The pair is centred as one header row.
+        # has read the word.
         self.icon = None
         if icon:
             from lib.components.glyph import Glyph
@@ -87,54 +111,90 @@ class Station(VGroup):
             self.icon = Glyph(
                 icon, color=self.accent, height=self.title_mob.height * 1.7
             )
-            header = VGroup(self.icon, self.title_mob).arrange(
-                RIGHT, buff=theme.PAD_SM
+
+        if header_side not in ("top", "left"):
+            raise ValueError("header_side must be 'top' or 'left'")
+        self.header_side = header_side
+
+        words = VGroup(self.title_mob)
+        if self.subtitle_mob is not None:
+            words.add(self.subtitle_mob)
+
+        if header_side == "top":
+            words.arrange(DOWN, buff=theme.PAD_XS)
+            header = (
+                VGroup(self.icon, words).arrange(RIGHT, buff=theme.PAD_SM)
+                if self.icon is not None
+                else VGroup(words)
             )
+            header.next_to(self.bay.get_top(), DOWN, buff=theme.PAD_MD)
         else:
-            header = VGroup(self.title_mob)
-        self.header = header
-        header.next_to(self.bay.get_top(), DOWN, buff=theme.PAD_MD)
-
-        self.add(self.bay, header)
-
-        self.subtitle_mob = None
-        if subtitle:
-            self.subtitle_mob = utils._text(
-                subtitle, theme.SIZE_MICRO, theme.FG_MUTED, theme.FONT_MONO
+            # A wide, short bay has no vertical room for a stacked header, so
+            # the naming sits in a left-hand block and the slot takes the rest.
+            words.arrange(DOWN, buff=theme.PAD_XS, aligned_edge=LEFT)
+            header = (
+                VGroup(self.icon, words).arrange(RIGHT, buff=theme.PAD_SM)
+                if self.icon is not None
+                else VGroup(words)
             )
-            self.subtitle_mob.next_to(self.header, DOWN, buff=theme.PAD_XS)
-            self.add(self.subtitle_mob)
+            header.move_to(self.bay.get_left() + RIGHT * (header.width / 2 + theme.PAD_MD))
+
+        self.header = header
+        self.add(self.bay, header)
 
         self.content = VGroup()
         self.add(self.content)
 
         self.marquee = None
         if marquee:
-            self.marquee = utils._text(
-                marquee, theme.SIZE_HEADING, self.accent, theme.FONT_BODY
+            self.marquee = typography.text(
+                marquee_role, marquee, frame_width=wide_width,
+                color=self.accent, bold=True,
             )
-            self.marquee.scale(marquee_scale)
-            utils.fit_text(self.marquee, width * 0.95)
-            self.marquee.next_to(self.bay, DOWN, buff=theme.PAD_MD)
+            # Above or below, the bay's own width is the natural clamp. Beside
+            # it, there is no such bound, so the caller states one — that side
+            # margin is exactly the space a tall column has to spend.
+            limit = (
+                marquee_max_width
+                if marquee_max_width is not None
+                else width * 0.95
+            )
+            utils.fit_text(self.marquee, limit)
+            sides = {"up": UP, "down": DOWN, "left": LEFT, "right": RIGHT}
+            if marquee_side not in sides:
+                raise ValueError(f"marquee_side must be one of {sorted(sides)}")
+            self.marquee_side = marquee_side
+            self.marquee.next_to(self.bay, sides[marquee_side], buff=theme.PAD_MD)
             self.marquee.set_opacity(0.0)
             self.add(self.marquee)
 
     # ------------------------------------------------------------- geometry
     @property
     def slot_size(self) -> tuple[float, float]:
-        """Usable (width, height) inside the bay, below the title."""
-        header = (self.bay.get_top()[1] - self._slot_top())
+        """Usable (width, height) inside the bay, clear of the header."""
+        if self.header_side == "left":
+            used = self.header.width + 2 * theme.PAD_MD
+            return (
+                self.bay_width - used - theme.PAD_MD,
+                self.bay_height - 2 * theme.PAD_SM,
+            )
+        consumed = self.bay.get_top()[1] - self._slot_top()
         return (
             self.bay_width - 2 * theme.PAD_MD,
-            self.bay_height - header - theme.PAD_MD,
+            self.bay_height - consumed - theme.PAD_MD,
         )
 
     def _slot_top(self) -> float:
-        anchor = self.subtitle_mob or self.header
-        return anchor.get_bottom()[1] - theme.PAD_SM
+        return self.header.get_bottom()[1] - theme.PAD_SM
 
     @property
     def slot_center(self) -> np.ndarray:
+        if self.header_side == "left":
+            left = self.header.get_right()[0] + theme.PAD_MD
+            right = self.bay.get_right()[0] - theme.PAD_MD
+            return np.array(
+                [(left + right) / 2, self.bay.get_center()[1], 0.0]
+            )
         top = self._slot_top()
         bottom = self.bay.get_bottom()[1] + theme.PAD_MD
         return np.array([self.bay.get_center()[0], (top + bottom) / 2, 0.0])
@@ -197,9 +257,9 @@ class PipelineBox(VGroup):
     Used for the "this whole thing is the LLM" beat: the viewer needs to see
     that tokenizer, embedder, transformer and sampler live inside one box.
 
-    ``pad`` does double duty: it is the visual breathing room around the
-    contents, and it is what lifts the box title clear of a tight shot framed on
-    one enclosed station. Shrink it and the title starts hanging into close-ups.
+    The title sits above the frame, not inside it, so it cannot collide with
+    anything the enclosed contents place near their own top edge. ``pad`` is
+    then purely visual breathing room around the contents.
     """
 
     def __init__(
@@ -210,7 +270,7 @@ class PipelineBox(VGroup):
         subtitle: str | None = None,
         pad: float = 2.2,
         accent=None,
-        title_scale: float = 1.8,
+        wide_width: float = 25.0,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -230,23 +290,29 @@ class PipelineBox(VGroup):
         )
         self.frame.move_to(inner.get_center() + UP * 0.4)
 
-        # Big enough to read in the pulled-back shot, and kept high enough above
-        # the enclosed stations that it stays out of frame during a tight shot
-        # on any one of them — that is what `pad` is buying.
-        self.title_mob = utils._text(title, theme.SIZE_HEADING, self.accent, theme.FONT_BODY)
-        self.title_mob.scale(title_scale)
-        self.title_mob.next_to(self.frame.get_top(), DOWN, buff=theme.PAD_SM)
-
-        self.add(self.frame, self.title_mob)
-
+        # Sized for the pulled-back shot, since that is where it is read, and
+        # placed *outside* the frame rather than inside it. Inside, it competes
+        # for space with whatever the enclosed stations put near their top edge
+        # — station marquees, in this repo's case — and the collision is only
+        # visible at the one shot where both are on screen.
+        self.title_mob = typography.text(
+            "title", title, frame_width=wide_width, color=self.accent, bold=True
+        )
         self.subtitle_mob = None
         if subtitle:
-            self.subtitle_mob = utils._text(
-                subtitle, theme.SIZE_LABEL, theme.FG_MUTED, theme.FONT_MONO
+            self.subtitle_mob = typography.text(
+                "caption", subtitle, frame_width=wide_width,
+                color=theme.FG_MUTED, mono=True,
             )
-            self.subtitle_mob.scale(title_scale * 0.7)
-            self.subtitle_mob.next_to(self.title_mob, DOWN, buff=theme.PAD_SM)
-            self.add(self.subtitle_mob)
+
+        # Title above subtitle, the pair stacked above the frame.
+        header = VGroup(self.title_mob)
+        if self.subtitle_mob is not None:
+            header.add(self.subtitle_mob)
+            header.arrange(DOWN, buff=theme.PAD_XS)
+        header.next_to(self.frame.get_top(), UP, buff=theme.PAD_SM)
+        self.caption = header
+        self.add(self.frame, header)
 
     @property
     def entry(self) -> np.ndarray:

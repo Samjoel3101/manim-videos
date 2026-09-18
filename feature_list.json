@@ -158,17 +158,6 @@
       "priority": 12
     },
     {
-      "id": "harness-motion-blur",
-      "title": "Motion blur as a render-profile finishing pass",
-      "status": "passing",
-      "acceptance": [
-        "preview and final profiles apply an ffmpeg frame-blend pass; test and draft do not",
-        "--no-blur skips it",
-        "scripts/new_video.py scaffolds a render.py identical to the live one"
-      ],
-      "priority": 13
-    },
-    {
       "id": "skill-factory-video",
       "title": "factory-video skill: the house format, written down",
       "status": "passing",
@@ -178,11 +167,48 @@
         "Reference file records the motion standards' sources and Manim's real limits",
         "AGENTS.md points at it rather than duplicating it"
       ],
+      "priority": 13
+    },
+    {
+      "id": "lib-typography",
+      "title": "typography.py: type sized as a share of frame height",
+      "status": "passing",
+      "acceptance": [
+        "A role occupies the same share of the frame at any camera width",
+        "Point size derives from the shot the text is read in, never hardcoded",
+        "Cap-height calibration is pinned by a test, so a Manim upgrade cannot silently rescale the catalogue",
+        "Every role clears the readability floor; audit() reports labels that do not",
+        "Station, PipelineBox and the video's labels all go through it"
+      ],
       "priority": 14
     },
     {
+      "id": "lib-routing",
+      "title": "routing.py: orthogonal rails, path joining, clearance assertions",
+      "status": "passing",
+      "acceptance": [
+        "join() builds a travel path out of the drawn rails, so path and diagram cannot disagree",
+        "path_clears/assert_path_clears catch a path crossing a box",
+        "chord_violations catches a fast corner the trail cuts but the path misses",
+        "elbow() keeps rails orthogonal",
+        "The video's set calls validate() at construction, so regressions fail the render gate"
+      ],
+      "priority": 15
+    },
+    {
+      "id": "harness-motion-blur-off",
+      "title": "Motion blur disabled by default on every profile",
+      "status": "passing",
+      "acceptance": [
+        "No profile applies frame blending unless explicitly switched on",
+        "The reason is recorded where the setting lives, not only in a commit message",
+        "--no-blur still works for a profile that opts in"
+      ],
+      "priority": 16
+    },
+    {
       "id": "harness-hook-bash-false-positive",
-      "priority": 15,
+      "priority": 17,
       "title": "Protected-path hook: narrow the Bash matcher to actual writes",
       "status": "failing",
       "blocked_on": "human \u2014 the hook protects itself, so an agent cannot fix it",
@@ -195,7 +221,7 @@
     },
     {
       "id": "harness-ci",
-      "priority": 16,
+      "priority": 18,
       "title": "CI: run the Evaluator from the base branch on every pull request",
       "status": "planned",
       "blocked_on": "human \u2014 .github/workflows/ is a protected path",

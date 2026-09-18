@@ -22,14 +22,14 @@
       "resolution": "1280x720",
       "fps": 30,
       "dir": "720p30",
-      "motion_blur": true
+      "motion_blur": false
     },
     "final": {
       "flag": "-qh",
       "resolution": "1920x1080",
       "fps": 60,
       "dir": "1080p60",
-      "motion_blur": true
+      "motion_blur": false
     }
   },
   "default_profile": "draft",
@@ -60,8 +60,8 @@
     ".github/workflows/"
   ],
   "motion_blur": {
-    "$comment": "Frame-blend motion blur applied by render.py as an ffmpeg post-pass. Manim has no motion blur of its own; blending adjacent frames of a high-fps render is the standard substitute and costs about as long as the clip itself.",
+    "$comment": "OFF by default on every profile, deliberately. A frame-blend pass smears the WHOLE frame, so on a camera move it reads as judder and slow motion rather than polish. Clean motion here comes from easing (lib/motion.py) and comet trails (lib/effects.py), not from blur. Turn a profile's motion_blur on only for a specific shot that needs it, and look at the result.",
     "frames": 3,
-    "enabled_by_default": true
+    "enabled_by_default": false
   }
 }

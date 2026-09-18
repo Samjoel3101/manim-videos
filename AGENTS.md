@@ -12,6 +12,8 @@ vocabulary already exists in `/lib`.
 | `lib/components/` | Reusable visuals as VGroup subclasses. Check here first. |
 | `lib/camera.py` | Camera choreography for continuous, uncut shots. |
 | `lib/motion.py` | **The motion language.** Easing curves and durations. |
+| `lib/typography.py` | **The type system.** Sizes as a share of frame height. |
+| `lib/routing.py` | Orthogonal rails, path joining, clearance assertions. |
 | `lib/effects.py` | Glow, comet trails, pulses. |
 | `lib/assets/icons/` | Vendored Lucide icons (ISC). |
 | `lib/transitions.py`, `lib/utils.py` | Scene transitions; text/layout helpers. |
@@ -44,12 +46,15 @@ can change both the work and its grading can pass by weakening the check.
    When a second scene needs a local helper, that is the moment to promote it.
 3. **Every new `/lib` component needs a matching test in `/tests/` before it is
    done.** Structural test always; a snapshot case if it has meaningful layout.
-4. Pull colour, size and spacing from `lib/theme.py`, and **easing from
-   `lib/motion.py`**. A hex string in a scene is a bug; so is a `self.play`
-   without a `rate_func=motion.*`. Manim's default easing is not the house look.
-5. **Nodes get icons, not labelled rectangles**, and "this is running" is a glow
+4. Pull colour and spacing from `lib/theme.py`, **easing from `lib/motion.py`**
+   and **type from `lib/typography.py`**. A hex string is a bug; so is a
+   `self.play` without `rate_func=motion.*`; so is a raw `font_size=`. Type is
+   sized against the shot it is read in, never in absolute points.
+5. **Travel paths are built from the drawn rails** (`routing.join`), never from
+   node centres, and a set asserts its own geometry in `validate()`.
+6. **Nodes get icons, not labelled rectangles**, and "this is running" is a glow
    (`lib/effects.py`), not a thicker border.
-6. Leave the repo merge-ready at the end of a session: green Evaluator, updated
+7. Leave the repo merge-ready at the end of a session: green Evaluator, updated
    `feature_list.json` status, an appended `claude-progress.txt` entry.
 
 ## Session start
@@ -127,5 +132,9 @@ or changing one — it carries the full recipe. The essentials:
 - A tight shot must clear its subject at 16:9. Frame height is width / 1.78, and
   a shot that crops the bottom of a bay is the commonest bug in this format —
   the tests cannot see it, so look at the frames.
-- Motion blur is a render profile, not a scene concern: `preview` and `final`
-  apply an ffmpeg frame-blend pass automatically. `--no-blur` skips it.
+- Motion blur is **off on every profile** by design — a frame-blend pass smears
+  the whole frame and reads as judder on a camera move. The machinery stays for
+  a shot that specifically wants it.
+- Watch the zoom budget: the pull-back factor is `wide_frame_width / 14.22`. A
+  wide layout reaches ~2x, a vertical column ~3x. Type is shot-relative so both
+  stay readable, but a set should assert its own figure.

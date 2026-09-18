@@ -53,11 +53,86 @@ Rules that come from real bugs:
   animate only their opacity. Constructing a halo mid-shot costs a beat.
 - **Attach rails to the shape, not the group.** `IconTile.tile.get_left()`, not
   `IconTile.get_left()` — the group includes the caption and the anchor moves.
-- **Keep the set under ~50 units wide.** The final pull-back is the total width
-  ÷ 14.22; past ~3.5× the station marquees stop being readable.
+- **Watch the zoom budget** — see "Layout and the zoom budget" below. A set
+  should compute its own pull-back factor and assert on it.
 - **`marquee=` for the wide shot.** The in-bay title is a few pixels at full
-  pull-back. Marquees are clamped to bay width and sit below the bay so they
-  cannot collide with each other or with a `PipelineBox` title.
+  pull-back, so each station carries a second, larger name that is revealed only
+  when the camera pulls out. `marquee_side` places it (`"left"` for a column),
+  and it is clamped so neighbours cannot collide.
+- **A `PipelineBox` title sits outside its frame**, not inside, so it cannot
+  collide with whatever the enclosed stations put near their own top edge.
+
+## Typography
+
+Never pass a point size. Type is specified as a **share of frame height** and
+the point size is derived from the shot it will be read in:
+
+```python
+from lib import typography as typo
+
+typo.text("heading", "Tokenizer", frame_width=SHOT_TIGHT)   # read in close-up
+typo.text("title", "THE MODEL", frame_width=SHOT_WIDE)      # read at the pull-back
+```
+
+A set declares `SHOT_TIGHT` and `SHOT_WIDE` once, and every label states which
+one it belongs to. That is the whole mechanism: absolute sizes are meaningless
+in a video whose camera zooms, and the arbitrary `x2.6` multipliers that
+preceded this are what "the typography looks odd" actually was.
+
+Roles, largest to smallest: `display`, `title`, `heading`, `body`, `label`,
+`caption`, `micro`. Reach for weight (`bold=True`) before another size step.
+Nothing may fall below `typo.MIN_READABLE` (2% of frame height) at the shot it
+is read in — `typo.audit()` checks a list of labels against that floor.
+
+**Labels for the wide shot start hidden.** A marquee sized for a 3x pull-back is
+several times the size of everything else in a close-up, so it lives at opacity
+0 until the pull-back reveals it.
+
+## Layout and the zoom budget
+
+The pull-back factor is `wide_frame_width / 14.22`, and it decides what is
+possible. A set should compute it and assert on it at construction.
+
+- A **wide** layout is width-bound at 16:9 and reaches ~2x.
+- A **vertical column** is height-bound and lands nearer ~3x. That is the price
+  of a top-to-bottom reading; it is affordable *only* because type is
+  shot-relative. Fixed-size type at 3x is what made an early cut illegible.
+- A tall column leaves the sides of a 16:9 frame empty. Spend that margin:
+  `marquee_side="left"` puts station names in it, which both fills the frame and
+  keeps the stack short.
+- Wide short bays need `header_side="left"` — there is no vertical room for a
+  stacked header, and the slot collapses to nothing if you try.
+
+## Trails and routing
+
+The complaint this section exists to prevent: *the trail goes through the boxes
+instead of following the diagram.*
+
+1. **Build the travel path from the rails**, never from node centres:
+   `routing.join(rail_a, rail_b, ...)`. If the path is made of the drawn rails,
+   it cannot disagree with them.
+2. **Assert it.** A set's `validate()` should call
+   `routing.assert_path_clears(...)` on anything that must go *around* things,
+   so a routing regression fails at construction rather than in a render.
+3. **Also assert the chords.** A comet is sampled once per frame and joined with
+   straight segments, so a corner taken too fast cuts across things the path
+   itself misses. `routing.assert_trail_clears(path, obstacles, steps=fps*run_time)`
+   catches exactly that, and `path_clears` cannot.
+4. **Place the dot on the path before attaching its trail.** A comet traces
+   `get_center` from the frame it is added; a dot still sitting where it was
+   draws one long chord across the whole set on its first frame. This produced a
+   stray diagonal through the machines and looked exactly like a routing bug.
+5. Keep `dissipating_time` short (~0.15s) on fast moves.
+6. Rails are orthogonal. Use `routing.elbow()`; diagonals read as sloppy.
+
+## Motion blur: off
+
+`harness.json` ships with motion blur **disabled on every profile**, and that is
+a decision, not an oversight. A frame-blend pass smears the entire frame, so
+during a camera move it reads as judder and slow motion rather than polish.
+Clean motion here comes from easing and comet trails. The machinery is still
+there for a specific shot that wants it; turn it on for one profile, render, and
+look.
 
 ## The motion language
 
