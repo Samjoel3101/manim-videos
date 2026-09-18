@@ -19,6 +19,7 @@ import numpy as np
 from manim import (
     DOWN,
     LEFT,
+    PI,
     RIGHT,
     UP,
     Mobject,
@@ -387,12 +388,15 @@ class PipelineBox(VGroup):
         pad: float = 2.2,
         accent=None,
         title_role: str = "title",
+        title_side: str = "top",
         wide_width: float = 25.0,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         if not contents:
             raise ValueError("PipelineBox needs at least one enclosed mobject")
+        if title_side not in ("top", "side"):
+            raise ValueError("title_side must be 'top' or 'side'")
 
         self.accent = accent or theme.ASSISTANT
         inner = VGroup(*contents)
@@ -427,11 +431,33 @@ class PipelineBox(VGroup):
         if self.subtitle_mob is not None:
             header.add(self.subtitle_mob)
             header.arrange(DOWN, buff=theme.PAD_XS)
-        # Clamp to the box: a caption wider than the thing it names reads as a
-        # banner across the whole frame and collides with whatever sits above.
-        if header.width > self.frame.width:
-            header.scale(self.frame.width / header.width)
-        header.next_to(self.frame.get_top(), UP, buff=theme.PAD_SM)
+        if title_side == "top":
+            # Clamp to the box: a caption wider than the thing it names reads as
+            # a banner across the whole frame and collides with whatever sits
+            # above it.
+            if header.width > self.frame.width:
+                header.scale(self.frame.width / header.width)
+            header.next_to(self.frame.get_top(), UP, buff=theme.PAD_SM)
+        else:
+            # Down the side instead, reading bottom-to-top.
+            #
+            # A title above a TALL box is a problem a wide box does not have. It
+            # lands on the vertical midline, which in a column layout is exactly
+            # where the rail feeding the box comes down — and a name sized to be
+            # read at the pull-back is about as wide as the box, so there is no
+            # "shift it aside" that keeps it legible. Stopping the rail above
+            # the words was tried and is worse: the caption is a wide-shot label
+            # that stays dark through every close-up, so for most of the film
+            # the viewer just sees an arrow ending in space and a machine that
+            # looks unconnected.
+            #
+            # A tall box has height to spare and a column layout leaves its side
+            # margins empty, so the name goes there: nothing to collide with,
+            # more room than the top ever had, and the midline stays clear.
+            if header.width > self.frame.height:
+                header.scale(self.frame.height / header.width)
+            header.rotate(PI / 2)
+            header.next_to(self.frame, LEFT, buff=theme.PAD_MD)
         self.caption = header
         self.add(self.frame, header)
 

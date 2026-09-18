@@ -9,7 +9,8 @@ from __future__ import annotations
 import math
 from typing import Mapping, Sequence
 
-from manim import DOWN, LEFT, RIGHT, UP, Rectangle, VGroup
+import numpy as np
+from manim import DOWN, LEFT, ORIGIN, RIGHT, UP, Rectangle, VGroup
 
 from lib import theme, utils
 
@@ -48,6 +49,7 @@ class ProbabilityBar(VGroup):
         self.label_mob = utils._text(label, theme.SIZE_CAPTION, theme.FG, theme.FONT_MONO)
         utils.fit_text(self.label_mob, label_width)
 
+        self.label_width = label_width
         self.track = Rectangle(
             width=bar_length,
             height=bar_height,
@@ -63,7 +65,18 @@ class ProbabilityBar(VGroup):
             fill_opacity=1.0,
             stroke_width=0,
         )
-        self.track.next_to(self.label_mob, RIGHT, buff=theme.PAD_MD)
+        # ``label_width`` reserves a COLUMN, it does not merely cap the text.
+        # Laying the row out around its own label — `track.next_to(label)` — put
+        # each row's track wherever that row's word happened to end, so a chart
+        # of "It" and "When" came out with a ragged left edge on the bars. The
+        # row is built against a fixed origin instead: label left edge at x=0,
+        # track always at the same offset, whatever the label says. Every row's
+        # bounding box then starts at 0 too, so the chart's `aligned_edge=LEFT`
+        # lines up the labels and the bars at once.
+        self.label_mob.set_y(0.0).align_to(ORIGIN, LEFT)
+        self.track.move_to(
+            np.array([label_width + theme.PAD_MD + bar_length / 2, 0.0, 0.0])
+        )
         self.bar.align_to(self.track, LEFT).set_y(self.track.get_y())
         self.add(self.label_mob, self.track, self.bar)
 

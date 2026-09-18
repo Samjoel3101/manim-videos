@@ -61,6 +61,13 @@ Rules that come from real bugs:
   and it is clamped so neighbours cannot collide.
 - **A `PipelineBox` title sits outside its frame**, not inside, so it cannot
   collide with whatever the enclosed stations put near their own top edge.
+- **A tall box wears its name down the side** (`title_side="side"`), not across
+  the top. A box fed from above has a rail coming down its midline, and a title
+  sized for the pull-back is about as wide as the box, so a top title and the
+  rail want the same space. Stopping the rail short of the words is the trap:
+  the title is a wide-shot label and stays dark through every close-up, so all
+  the viewer sees is an arrow ending in nothing. A column layout leaves its side
+  margins empty and a tall box has height to spare — spend both.
 
 ## Typography
 
@@ -131,6 +138,24 @@ instead of following the diagram.*
    stray diagonal through the machines and looked exactly like a routing bug.
 5. Keep `dissipating_time` short (~0.15s) on fast moves.
 6. Rails are orthogonal. Use `routing.elbow()`; diagonals read as sloppy.
+7. **A rail must land on the thing it feeds.** If something is in the way, move
+   the obstacle, not the rail's endpoint. A gap of even half a unit reads as
+   "these two are not connected", which is the opposite of what a diagram of a
+   pipeline is for.
+
+## Rows of anything: reserve the column, do not measure the text
+
+A width argument on a label should reserve a **column**, not merely cap the
+text. Laying a row out around its own label — `track.next_to(label, RIGHT)` —
+puts every row's content wherever that row's word happened to end, so a chart
+of "It" and "When" comes out with a ragged left edge. Build the row against a
+fixed origin instead: label at x=0, content always at the same offset. Every
+row's bounding box then starts at the same place, so a plain
+`arrange(DOWN, aligned_edge=LEFT)` lines up all the columns at once.
+
+Assert it. Alignment is invisible to the snapshot gate — a 16×16 luminance
+signature cannot see a bar move a third of a unit — so a ragged edge ships
+unless a structural test compares the left edges directly.
 
 ## Two traps that look like colour bugs
 
@@ -150,6 +175,17 @@ grey" rather than as what they are.
 
 When a label looks wrong, check whether the *same text outside the container*
 renders correctly before suspecting the colour or the type system.
+
+## Legibility beats accuracy in a silent cut
+
+The tokenizer used to draw a leading space as `␣`, which is true to how tokens
+work and read on screen as a broken glyph — "a half box in front of the word".
+A notation that needs narration to land has nothing to explain it in a
+thirty-second silent film. `display_token` now trims by default and takes
+`show_space=True` for a shot that says out loud what the marker means. The
+model keeps the real token either way; only the drawing changes. Same test for
+any annotation: if a first-time viewer would read it as a rendering bug, it is
+one.
 
 ## Motion blur: off
 

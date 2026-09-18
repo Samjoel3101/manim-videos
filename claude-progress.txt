@@ -358,3 +358,56 @@ STILL BLOCKED ON A HUMAN (seventh session)
 1. harness-hook-bash-false-positive.
 2. harness-ci.
 3. default branch.
+
+================================================================================
+SESSION 7 — three review fixes
+================================================================================
+
+Review of the shipped cut: the web-server arrow was not connected, half-boxes
+sat in front of the words in the tokenizer and the sampler, and the sampling
+bar chart was not aligned to the left. All three were real and all three were
+in /lib rather than in the video.
+
+1. THE ARROW ENDED IN SPACE
+The rail from the web server stopped above the box CAPTION rather than at the
+box, deliberately, so it would not draw through "THE MODEL". But that caption
+is a wide-shot label: it is dark through every close-up, so for most of the
+film there was an arrow pointing at nothing and a machine that looked
+unconnected. The dodge was the bug.
+
+The underlying problem is that a TALL box cannot wear its name across the top.
+The rail comes down the column's midline and a title sized to be read at the
+pull-back is about as wide as the box, so there is no "shift it aside" that
+stays legible — the previous version was clamped to exactly the box width.
+PipelineBox gained title_side="side": the name runs down the margin, reading
+bottom-to-top. A tall box has height to spare, a column layout leaves its side
+margins empty, and the midline comes free. It also balances the return label,
+which was already a rotated label in the opposite margin. The rail now ends on
+the frame edge.
+
+SHOT_WIDE retuned 57.8 -> 55.0 to match: the box no longer needs headroom.
+
+2. HALF-BOXES IN FRONT OF THE WORDS
+The space marker, "␣It". It was drawn on purpose — whitespace belongs to the
+token, which is true and worth knowing — but on screen it does not read as a
+distinction, it reads as a broken glyph. It needs narration to land and a chip
+in a silent 30-second cut has no chance to explain itself. display_token now
+trims by default and takes show_space=True for a shot that says out loud what
+the marker means. Chips still CARRY the full token; only the drawing changed.
+
+3. RAGGED BARS
+label_width capped the label but the track was placed next_to() it, so every
+row put its bar wherever that row's word happened to end — "It" and "When"
+gave different left edges. label_width now reserves a column and the row is
+built against a fixed origin, so labels, tracks and values each share one edge.
+
+WORTH KNOWING
+The snapshot gate did not catch (3). A 16x16 luminance signature at tolerance
+0.02 cannot see a bar moving a third of a unit. The five affected baselines
+were re-approved after looking at the render. Not proposing a change to the
+gate — it is protected, and a tighter one would be fragile — but it is a known
+blind spot: alignment is a job for a structural assertion, and there are now
+two of those.
+
+183 tests (7 new), 20 baselines (5 re-approved), Evaluator green on all five
+gates. assets/ refreshed.

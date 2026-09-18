@@ -14,7 +14,14 @@ from manim import DOWN, LEFT, RIGHT, UP, Mobject, VGroup
 
 from lib import theme, utils
 
-#: Characters shown in place of whitespace so a leading-space token is visible.
+#: Character shown in place of a space when ``show_space`` is asked for.
+#:
+#: OFF BY DEFAULT, and that is a review note rather than an oversight. On screen
+#: "␣It" does not read as "this token owns its leading space" — it reads as a
+#: broken glyph, a half-drawn box in front of the word. The distinction it draws
+#: is real, but it needs narration to land, and a chip in a 30-second silent cut
+#: has no chance to explain itself. Turn it on for a shot that says out loud
+#: what the marker means.
 SPACE_GLYPH = "␣"
 
 
@@ -43,9 +50,19 @@ def simple_tokenize(text: str) -> list[str]:
     return out
 
 
-def display_token(token: str) -> str:
-    """Render whitespace visibly so token boundaries read on screen."""
-    return token.replace(" ", SPACE_GLYPH).replace("\n", "⏎")
+def display_token(token: str, *, show_space: bool = False) -> str:
+    """How a token is drawn on a chip.
+
+    By default a leading space is simply trimmed: the chip shows the word. Pass
+    ``show_space=True`` for a shot that is specifically *about* whitespace
+    belonging to the token — see :data:`SPACE_GLYPH` for why that is not the
+    default.
+    """
+    if show_space:
+        return token.replace(" ", SPACE_GLYPH).replace("\n", "⏎")
+    shown = token.replace("\n", "⏎").strip()
+    # A token that is nothing but whitespace has to draw *something*.
+    return shown or SPACE_GLYPH
 
 
 class TokenChip(VGroup):
@@ -63,6 +80,7 @@ class TokenChip(VGroup):
         font_size: float = theme.SIZE_LABEL,
         min_width: float = 0.5,
         show_id: bool = False,
+        show_space: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -71,7 +89,10 @@ class TokenChip(VGroup):
         self.accent = color or theme.TOKEN
 
         self.text_mob = utils._text(
-            display_token(token), font_size, theme.FG, theme.FONT_MONO
+            display_token(token, show_space=show_space),
+            font_size,
+            theme.FG,
+            theme.FONT_MONO,
         )
         self.box = utils.panel(
             width=max(min_width, self.text_mob.width + 2 * theme.PAD_SM),
@@ -123,6 +144,7 @@ class TokenStrip(VGroup):
         token_ids: Sequence[int] | None = None,
         per_line: int | None = None,
         show_ids: bool = False,
+        show_space: bool = False,
         gap: float = theme.PAD_XS,
         row_gap: float = theme.PAD_MD,
         color=None,
@@ -143,6 +165,7 @@ class TokenStrip(VGroup):
                     tok,
                     token_id=None if self.token_ids is None else self.token_ids[i],
                     show_id=show_ids,
+                    show_space=show_space,
                     color=color,
                     font_size=font_size,
                 )

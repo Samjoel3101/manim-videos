@@ -187,8 +187,27 @@ def test_simple_tokenize_splits_long_words():
     assert "".join(pieces) == "tokenization"
 
 
-def test_display_token_makes_whitespace_visible():
-    assert display_token(" the") == "␣the"
+def test_display_token_hides_the_space_marker_unless_asked():
+    """The marker reads as a broken glyph on screen, so it is opt-in.
+
+    Review note, not a preference: a chip showing "␣It" was read as a half-drawn
+    box in front of the word rather than as "this token owns its leading space".
+    """
+    assert display_token(" the") == "the"
+    assert display_token(" the", show_space=True) == "␣the"
+
+
+def test_a_whitespace_only_token_still_draws_something():
+    """Trimming to nothing would give a chip with an empty box in it."""
+    assert display_token(" ") == "␣"
+
+
+def test_chips_carry_the_full_token_even_when_it_is_not_shown():
+    """The leading space belongs to the token; only the drawing drops it."""
+    chip = TokenChip(" the")
+    assert chip.token == " the"
+    assert chip.text_mob.text == "the"
+    assert TokenStrip([" the"], show_space=True)[0].text_mob.text == "␣the"
 
 
 def test_fake_token_id_is_stable_and_in_vocab_range():
@@ -308,6 +327,30 @@ def test_probability_bar_width_tracks_value():
     half = bar.bar.width
     bar.set_value(1.0)
     assert bar.bar.width > half
+
+
+def test_label_width_reserves_a_column_so_bars_share_a_left_edge():
+    """The shipped bug: rows laid out around their own text.
+
+    ``label_width`` caps the label but the track was placed `next_to` it, so
+    every row put its bar wherever that row's word happened to end and the chart
+    came out with a ragged left edge.
+    """
+    short = ProbabilityBar("It", 0.6, label_width=1.3)
+    long = ProbabilityBar("When", 0.6, label_width=1.3)
+    assert short.track.get_left()[0] == pytest.approx(long.track.get_left()[0])
+    assert short.label_mob.get_left()[0] == pytest.approx(long.label_mob.get_left()[0])
+
+
+def test_every_row_in_a_chart_lines_up():
+    """What the viewer actually sees: one left edge for the labels, one for the
+    bars, and one for the values."""
+    chart = ProbabilityChart(
+        {" It": 3.2, " Your": 1.9, " The": 1.5, " When": 0.6}, logits=True
+    )
+    for attr in ("label_mob", "track", "value_mob"):
+        edges = [getattr(bar, attr).get_left()[0] for bar in chart.bars]
+        assert edges == pytest.approx([edges[0]] * len(edges)), f"{attr} is ragged"
 
 
 # ------------------------------------------------------------ transformer
@@ -440,6 +483,33 @@ def test_pipeline_box_encloses_its_contents():
 def test_pipeline_box_rejects_empty_contents():
     with pytest.raises(ValueError):
         PipelineBox([], title="LLM")
+
+
+def test_pipeline_box_rejects_an_unknown_title_side():
+    with pytest.raises(ValueError):
+        PipelineBox([Station("A")], title="LLM", title_side="underneath")
+
+
+def test_a_side_title_leaves_the_top_midline_clear():
+    """A tall box fed from above cannot wear its name across the top.
+
+    The rail comes down the column's centre, and a title sized to be read at the
+    pull-back is about as wide as the box, so a top title sits exactly where the
+    rail has to arrive. Stopping the rail short of it is what made the machine
+    look unconnected for the whole film.
+    """
+    top = Station("A")
+    bottom = Station("B").shift(np.array([0, -9.0, 0]))
+    box = PipelineBox([top, bottom], title="THE MODEL", title_side="side")
+
+    midline = box.frame.get_center()[0]
+    assert not (
+        box.caption.get_left()[0] <= midline <= box.caption.get_right()[0]
+    ), "the title still straddles the midline the rail comes down"
+    assert box.caption.get_right()[0] <= box.frame.get_left()[0], "beside the box"
+    # And it stays legible: a side title trades width for the height a tall box
+    # has to spare, so it must not have been clamped into nothing.
+    assert box.caption.height > box.frame.height * 0.4
 
 
 def test_conveyor_path_is_traversable_end_to_end():

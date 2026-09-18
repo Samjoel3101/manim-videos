@@ -79,7 +79,7 @@ SHOT_TIGHT = 13.6
 
 #: The final pull-back. Wide labels and the box title are sized against this,
 #: and `validate()` fails if the real figure drifts away from it.
-SHOT_WIDE = 57.8
+SHOT_WIDE = 55.0
 
 # --- world anchors ---------------------------------------------------------
 COLUMN_X = 0.0
@@ -165,6 +165,10 @@ class FactorySet(VGroup):
             # names the machine, it does not headline the film. A caption sized
             # for the whole frame collided with the server sitting above it.
             title_role="heading",
+            # Down the empty left margin, not across the top: the rail comes
+            # down the centre of the column and has to reach the box. The right
+            # margin already carries the return label, so this balances it.
+            title_side="side",
             wide_width=SHOT_WIDE,
         )
         box_top = float(self.llm.frame.get_top()[1])
@@ -197,21 +201,19 @@ class FactorySet(VGroup):
             ],
             chevrons=1,
         )
-        # Stops ABOVE the box caption rather than running down to the frame.
-        # "THE MODEL" is centred on the box and the descent is centred on the
-        # column, so a rail drawn all the way to the frame draws a line straight
-        # through the middle of the words. `routing.join` bridges the gap with a
-        # straight run, so the travelling token still crosses it — it passes
-        # over the title, which is what entering a labelled machine looks like.
+        # Runs all the way to the box. An earlier version stopped above the box
+        # caption to avoid drawing through "THE MODEL", and since that caption
+        # is a wide-shot label that stays dark through every close-up, what the
+        # viewer actually saw was an arrow ending in empty space — the machine
+        # it feeds looked unconnected. The caption moved to the box's top-left
+        # corner instead (`title_side="left"`), which frees the midline.
         self.rail_server_to_model = Conveyor(
             [
                 # From below the server's CAPTION, not its tile: the caption
                 # hangs under the tile, so a rail started at the tile begins
                 # behind the words.
                 self.server.get_bottom() + DOWN * 0.25,
-                np.array(
-                    [COLUMN_X, float(self.llm.caption.get_top()[1]) + 0.2, 0.0]
-                ),
+                np.array([COLUMN_X, float(self.llm.frame.get_top()[1]), 0.0]),
             ],
             chevrons=1,
         )
