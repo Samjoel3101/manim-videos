@@ -291,3 +291,36 @@ NEXT
 - The chat window is small at a 3.44x pull-back; if the reply must be readable
   in the final wide shot, the chat needs to be larger in world space, which
   changes every earlier shot.
+
+================================================================================
+SESSION 6 — publish: assets/ and a trunk
+================================================================================
+
+Asked to merge the PR to main and put the asset in an assets folder. Two things
+were not as assumed, and both are worth recording because they shaped what was
+done:
+
+- There was no pull request. Only the feature branch had ever been pushed.
+- There was no main. The repo was created empty, so the first push made the
+  feature branch the repository's DEFAULT branch. There was nothing to merge
+  into and nothing for a PR to have a base of.
+
+So main was created at the branch head rather than merged into: same commit,
+no history rewritten, nothing lost. The repo's default branch is still the
+feature branch — that is a repository setting and no tool here can change it,
+so a human has to flip it in Settings > Branches. Until then a clone still
+lands on the feature branch.
+
+assets/ — the accepted cut, committed
+out/ is ignored, so the reviewed cut could not be watched from a clone without
+re-rendering. assets/ now holds one committed file per video: the render that
+was accepted. out/ stays scratch. The preview profile is the right size to
+commit (1.7M); a final render is not, and assets/README.md says so along with
+the regenerate command. Added to the map in AGENTS.md.
+
+STILL BLOCKED ON A HUMAN (sixth session)
+1. harness-hook-bash-false-positive. Hit again this session: the Evaluator
+   would not run under `2>&1` because the command mentions a protected path
+   and contains a redirect. Dropping the redirect worked.
+2. harness-ci.
+3. NEW — default branch. See above. One setting, one click.
