@@ -129,3 +129,85 @@ KNOWN-WEAK, NOT HIDDEN
 NEXT SESSION
 The highest-priority incomplete item is `voiceover-pass`, then
 `probability-typography`.
+
+================================================================================
+SESSION: six reviewed defects in chatgpt_request_lifecycle (and one in /lib)
+================================================================================
+An independent review found six defects in the film as shipped. All six are
+fixed; every fix carries a comment at the site saying what the earlier version
+did and how it failed, in the style of the rest of these files.
+
+D1  THE PREFILL/KV BEAT NEVER SHOWED THE NUMBER THE BEAT EXISTS FOR
+    beat_prefill built its bar with min_segment=0.05 while
+    lib/components/stacked.py drops an inline label for any segment drawn under
+    INLINE_MIN_FRACTION = 0.12. So the "new tail" segment was GUARANTEED to be
+    drawn without its label: the "37" the whole beat is about was never on
+    screen, while the orchestrator's bar eight seconds earlier printed
+    "your message 7" quite happily. Two module constants fighting in silence.
+    Compounding it, colors=[theme.FG_FAINT, theme.TOKEN] painted 95% of the bar
+    in the film's inactive/empty grey, so the bar read as "5% full" rather than
+    as two materials.
+    Fix: min_segment=0.14 (above the label floor) and the cached prefix in the
+    prefill station's own accent, dimmed — interpolate_color(BG, EMBED, 0.62).
+    Verified in a 1080p still at t=23.5: "new tail  37" is drawn under the amber
+    tail at essentially the same size as "cached prefix  3,900", and the bar
+    reads as a teal block plus an amber block.
+    Root cause, fixed in /lib as well — see the root log: SegmentedBar now
+    REFUSES min_segment < INLINE_MIN_FRACTION in labels="inline" mode unless the
+    caller passes allow_unlabelled_segments=True, and an inline label is never
+    shrunk below typography.MIN_READABLE. Raising min_segment alone was not
+    enough: measured, the label came out at 0.0083 of frame height, because
+    _build_inline fitted it to 94% of a segment far too narrow to hold it.
+
+D2  TWO OF THE ORCHESTRATOR'S FOUR SEGMENTS WERE THE SAME BLUE
+    theme.NETWORK (#7AA2F7) for "system prompt" and theme.USER (#4C8DFF) for
+    "your message" are both mid-blues: indistinguishable at swatch size and
+    hopeless at the sliver's width, in the one beat whose whole point is that
+    the big block at the front and the tiny thing at the end are different
+    things. "your message" is now theme.TOKEN (amber) — far from the other
+    three, and semantically right, since your message is what becomes tokens.
+    Verified in a still at t=16.5: the sliver and its legend swatch are amber
+    against the blue/violet/teal of the other three.
+
+D3  THE BOT CHECK WAS EFFECTIVELY UNLABELLED AT THE PULL-BACK
+    bot_check is an IconTile, not a Station, so it had no wide_label — and
+    validate()'s readability audit walked _stations(), which by definition
+    cannot reach a tile, so the assertion meant to catch exactly this had a hole
+    exactly there. Its caption measured 0.0073 of frame height at SHOT_WIDE=58,
+    2.7x under typography.MIN_READABLE.
+    Fix, both halves: the tile gets a pull-back label (LifecycleSet.
+    check_wide_label), sized to the DERIVED corridor between the chat window and
+    the Edge bay, dark until reveal_labels() cross-fades it in as the tile's
+    small caption goes out; and validate()'s audit now includes it. Re-measured:
+    0.0238, clear of the 0.020 floor and in family with the bay labels (0.022 to
+    0.053). Verified in the 1080p pull-back at t=43.9: "bot check" reads at a
+    glance, with 0.37 units of clearance to the chat and to the Edge bay, and no
+    contact with the tile or the rails.
+    This supersedes the "left alone rather than special-cased" note below.
+
+D5  THE WINNING TOKEN CHIP WAS DRAWN THROUGH THE PROBABILITY CHART
+    beat_sample played FadeOut(chart) and FadeIn(winner) in one 0.8s play, and
+    since the chip lands in the slot the chart occupies, a bordered chip was
+    drawn straight through two bars and their values for ~0.3s. Split into 0.3s
+    out then 0.5s in — the same split, for the same reason, as the tokenizer
+    beat above it. 0.3 + 0.5 = 0.8, so the beat's length and every downstream
+    timecode are unchanged. Verified in stills: at t=31.4 the chart is fading
+    with no chip present; at t=31.8 the chip stands alone in a clear slot.
+
+D6  A validate() MESSAGE PRINTED A LITERAL {BAND_BOT_Y}
+    The first fragment of the after-bay assertion had the f prefix and the
+    continuations did not. Fixed. While there, the clearance numbers in these
+    messages are printed at :.3f rather than :.2f — at :.2f a clearance of 0.998
+    rendered as "sits 1.00 above ... under the 1.0 minimum", which reads as a
+    contradiction and sends the reader looking for a bug in the assertion.
+
+RUNTIME AND ARTEFACTS
+    final profile: 44.133 s (budget 45, tolerance +/-1.5). Unchanged by these
+    fixes, as intended. assets/chatgpt_request_lifecycle.mp4 refreshed from that
+    render; scenes.json actual_seconds stays 44.1.
+    Evaluator: lint / import / unit / snapshot / render all green. NO baseline
+    drifted — including segmented_bar_legend, which was expected to. The legend
+    fix changes name SIZES, not row edges or block positions, and a 16x16
+    luminance grid cannot see that; the case was rendered and looked at anyway
+    (names now uniform, values right-aligned) rather than approved blind.
+    Nothing was approved.

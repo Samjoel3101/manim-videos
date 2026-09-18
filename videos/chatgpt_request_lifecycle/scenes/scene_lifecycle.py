@@ -51,6 +51,7 @@ from manim import (
     MoveAlongPath,
     MovingCameraScene,
     VGroup,
+    interpolate_color,
 )
 
 from lib import camera, effects, motion, routing, theme, typography
@@ -374,7 +375,15 @@ class TheLifecycle(MovingCameraScene):
             # the beat fails. The drawn slice is floored; the legend still
             # prints 7. See lib/components/stacked.py.
             min_segment=0.035,
-            colors=[theme.NETWORK, theme.ATTENTION, theme.EMBED, theme.USER],
+            # theme.TOKEN (amber) for "your message", NOT theme.USER. USER is
+            # #4C8DFF and NETWORK — the "system prompt" block at the other end
+            # of the same bar — is #7AA2F7: two mid-blues, indistinguishable at
+            # legend-swatch size and hopeless at the sliver's width. The beat is
+            # "the big block at the front and the tiny thing at the end are
+            # different things", so the sliver has to be the most distinct
+            # colour on the bar. Amber also happens to be right: your message is
+            # what becomes tokens.
+            colors=[theme.NETWORK, theme.ATTENTION, theme.EMBED, theme.TOKEN],
             frame_width=W_SERVICE,
         )
         content = VGroup(sources, bar).arrange(DOWN, buff=theme.PAD_SM)
@@ -532,8 +541,20 @@ class TheLifecycle(MovingCameraScene):
             length=3.4,
             thickness=0.4,
             labels="inline",
-            min_segment=0.05,
-            colors=[theme.FG_FAINT, theme.TOKEN],
+            # 0.14, ABOVE lib.components.stacked.INLINE_MIN_FRACTION (0.12).
+            # An earlier version passed 0.05 here: the tail was drawn, and then
+            # `_build_inline` dropped its label because 0.05 is under that
+            # constant — so the "37" this entire beat exists to show was never
+            # on screen anywhere, while the orchestrator's bar eight seconds
+            # earlier happily printed "your message 7". The two constants were
+            # fighting; SegmentedBar now refuses the combination outright.
+            min_segment=0.14,
+            # The cached prefix is the prefill station's OWN accent, dimmed,
+            # not theme.FG_FAINT. FG_FAINT is this film's inactive/empty grey
+            # everywhere else, so painting 86% of the bar in it read as "the
+            # bar is 14% full" — a progress meter — rather than as two
+            # materials, which is the whole point of a segmented bar.
+            colors=[interpolate_color(theme.BG, theme.EMBED, 0.62), theme.TOKEN],
             frame_width=W_TIGHT,
         )
         station.fit(bar, margin=1.0)
@@ -556,10 +577,12 @@ class TheLifecycle(MovingCameraScene):
             FadeIn(bar, shift=UP * theme.PAD_XS), run_time=0.85, rate_func=motion.ENTER
         )
 
-        # This caption NAMES the highlighted segment on purpose. The inline
-        # label rule in SegmentedBar drops any label narrower than 12% of the
-        # bar, and "new tail" is 5% — so without the caption the viewer is shown
-        # an emphasised amber sliver with nothing anywhere saying what it is.
+        # The caption says what the reuse MEANS; the bar's own inline label now
+        # carries the name and the number ("new tail  37"). It used not to: the
+        # tail was drawn at 5% of the bar, under SegmentedBar's 12% inline-label
+        # floor, so the label was dropped and this caption was the only thing on
+        # screen — an emphasised amber sliver with no number anywhere. The bar
+        # is built at min_segment=0.14 now, so the two say different things.
         note = self._note(
             station, "only the new tail is computed", W_TIGHT, tight=True
         )
@@ -688,11 +711,22 @@ class TheLifecycle(MovingCameraScene):
         winner = TokenStrip([" A"])
         station.fit(winner, margin=1.0)
         winner.scale(0.8)
+        # Two plays, not one, for exactly the reason the tokenizer beat above is
+        # split. The first cut faded the chart out and the winning chip in
+        # inside one 0.8s play, and since the chip lands in the same slot the
+        # chart occupies, a bordered token was drawn straight through two
+        # remaining bars and their values for about 0.3s — it reads as a
+        # rendering glitch, not a transition. 0.3 + 0.5 = the same 0.8, so the
+        # beat's length and every timecode after it are unchanged.
         self.play(
             FadeOut(chart),
             FadeOut(note),
+            run_time=0.3,
+            rate_func=motion.EXIT,
+        )
+        self.play(
             FadeIn(winner, scale=0.6),
-            run_time=0.8,
+            run_time=0.5,
             rate_func=motion.SNAP,
         )
         self.play(

@@ -197,6 +197,10 @@ def _segmented_bar_inline():
         thickness=0.6,
         labels="inline",
         min_segment=0.05,
+        # Explicit: below INLINE_MIN_FRACTION, so "new tail" is drawn without a
+        # label. That is precisely what this case guards, and SegmentedBar now
+        # makes a caller say so rather than discovering it in a render.
+        allow_unlabelled_segments=True,
         colors=[theme.FG_FAINT, theme.TOKEN],
         frame_width=13.6,
     )

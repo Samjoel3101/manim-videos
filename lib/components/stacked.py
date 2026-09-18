@@ -52,6 +52,13 @@ DEFAULT_FRAME_WIDTH = 13.6
 #: Drawn fraction below which an inline label is simply omitted. Squeezing
 #: "memory + prefs" into 8% of a 5-unit bar produces a smear, not a label — that
 #: is what :meth:`SegmentedBar.emphasise` plus a caption is for.
+#:
+#: A segment at or above this floor keeps its label, and that label is typed at
+#: a readable size even where that means overhanging its own segment — see
+#: ``_build_inline``. ``min_segment`` below this value in ``labels="inline"``
+#: mode is refused by the constructor, because the two constants used to fight
+#: each other silently: the caller floored a sliver to make it visible and the
+#: label rule here then dropped its name and number.
 INLINE_MIN_FRACTION = 0.12
 
 LABEL_MODES = ("legend", "inline", "none")
@@ -78,7 +85,13 @@ class SegmentedBar(VGroup):
         ``str.format`` spec for that number. The default groups thousands,
         because the numbers this component draws are usually token counts.
     min_segment:
-        Floor on a segment's *drawn* fraction. See the module docstring.
+        Floor on a segment's *drawn* fraction. See the module docstring. In
+        ``labels="inline"`` mode it must be at least
+        :data:`INLINE_MIN_FRACTION` (or ``0``), or the floored segments come out
+        drawn but unlabelled — see ``allow_unlabelled_segments``.
+    allow_unlabelled_segments:
+        Opt in to ``min_segment`` below :data:`INLINE_MIN_FRACTION` in inline
+        mode, for the case where something else on screen names the sliver.
     gap:
         Space between segments. Zero — one solid bar — by default.
     """
@@ -97,6 +110,7 @@ class SegmentedBar(VGroup):
         gap: float = 0.0,
         legend_width: float | None = None,
         frame_width: float = DEFAULT_FRAME_WIDTH,
+        allow_unlabelled_segments: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -110,6 +124,32 @@ class SegmentedBar(VGroup):
             raise ValueError(
                 f"min_segment={min_segment} cannot be honoured for {len(items)} "
                 "segments — the floors alone would overflow the bar"
+            )
+
+        # Two module constants used to fight each other in silence: a caller
+        # would pass `min_segment=0.05` to make a sliver visible, and
+        # `_build_inline` would then drop that sliver's label because 0.05 is
+        # under INLINE_MIN_FRACTION (0.12). The floored segment was drawn and
+        # its name and number were not, so the beat the floor existed for showed
+        # a coloured stripe with nothing saying what it was. That is exactly
+        # what happened to the prefill/KV bar in chatgpt_request_lifecycle: the
+        # "37" the beat is about was never on screen.
+        #
+        # Dropping a too-narrow label is still the right behaviour (a name
+        # squeezed into 5% of a bar is a smear), so this does not change it —
+        # it makes the caller say out loud that they meant it.
+        if (
+            labels == "inline"
+            and 0 < min_segment < INLINE_MIN_FRACTION
+            and not allow_unlabelled_segments
+        ):
+            raise ValueError(
+                f"min_segment={min_segment} is below INLINE_MIN_FRACTION="
+                f"{INLINE_MIN_FRACTION}, so every segment held up by the floor "
+                "will be DRAWN and left UNLABELLED in labels='inline' mode. "
+                f"Either raise min_segment to at least {INLINE_MIN_FRACTION} so "
+                "the segment carries its own name and value, or pass "
+                "allow_unlabelled_segments=True if a caption elsewhere names it."
             )
 
         self.names = [str(name) for name, _ in items]
@@ -224,6 +264,30 @@ class SegmentedBar(VGroup):
         frame_width: float,
     ) -> None:
         swatch = self.thickness * 0.5
+
+        # The value COLUMN, reserved once for every row — not each row's own
+        # value width. An earlier version measured `value_mob.width` inside the
+        # loop and subtracted that from the room left for the name, so the row
+        # whose value was "7" handed its name 0.3 more units than the row whose
+        # value was "2,400", and only the latter got shrunk by `fit_text`. The
+        # legend then came out with names at four different sizes (measured
+        # heights 0.1369 / 0.1155 / 0.1687 / 0.1766 on this film's own data —
+        # a 53% spread, and not even monotone in name length), which reads as a
+        # sloppy chart. The row edges stayed perfectly aligned throughout, which
+        # is why the structural test that checks edges never saw it, and why the
+        # 16x16 luminance snapshot did not either.
+        value_mobs: list = []
+        value_width = 0.0
+        if show_values:
+            value_mobs = [
+                typography.text(
+                    "micro", self._value_text(i), frame_width=frame_width,
+                    color=theme.FG_MUTED, mono=True,
+                )
+                for i in range(len(self.names))
+            ]
+            value_width = max(mob.width for mob in value_mobs)
+
         rows = VGroup()
         for i, name in enumerate(self.names):
             chip = Rectangle(
@@ -235,14 +299,7 @@ class SegmentedBar(VGroup):
             )
             chip.move_to(np.array([swatch / 2.0, 0.0, 0.0]))
 
-            value_mob = None
-            value_width = 0.0
-            if show_values:
-                value_mob = typography.text(
-                    "micro", self._value_text(i), frame_width=frame_width,
-                    color=theme.FG_MUTED, mono=True,
-                )
-                value_width = value_mob.width
+            value_mob = value_mobs[i] if show_values else None
 
             name_mob = typography.text(
                 "micro", name, frame_width=frame_width, color=theme.FG
@@ -276,6 +333,16 @@ class SegmentedBar(VGroup):
         self, widths: Sequence[float], show_values: bool, frame_width: float
     ) -> None:
         group = VGroup()
+        # A label is allowed to be WIDER than its own segment rather than be
+        # shrunk under the readability floor. Measured on the prefill bar of
+        # chatgpt_request_lifecycle: "new tail  37" fitted to 94% of a segment
+        # 14% of the bar wide came out at 0.008 of frame height, against
+        # typography.MIN_READABLE of 0.020 — drawn, and unreadable, which is the
+        # same failure as dropping it with extra steps. Nothing about a segment
+        # says the words underneath it may not overhang it; what matters is that
+        # they do not overhang each OTHER, which the cursor below enforces.
+        floor_height = typography.MIN_READABLE * typography.frame_height(frame_width)
+        prev_right: float | None = None
         for i, name in enumerate(self.names):
             segment = self.segments[i]
             if self.drawn_fractions[i] < INLINE_MIN_FRACTION:
@@ -287,8 +354,21 @@ class SegmentedBar(VGroup):
             mob = typography.text(
                 "micro", text, frame_width=frame_width, color=theme.FG_MUTED
             )
-            utils.fit_text(mob, max(widths[i] * 0.94, 0.2))
+            # The width this string may not be squeezed below: whatever it
+            # measures once scaled to exactly MIN_READABLE.
+            readable_width = float(mob.width) * min(
+                1.0, floor_height / float(mob.height)
+            )
+            utils.fit_text(mob, max(widths[i] * 0.94, readable_width, 0.2))
             mob.next_to(segment, DOWN, buff=theme.PAD_XS)
+            if prev_right is not None and mob.get_left()[0] < prev_right + theme.PAD_XS:
+                # An overhanging label is pushed clear of the previous one
+                # rather than shrunk into it — labels run left to right, so the
+                # room to give is always to the right.
+                mob.shift(
+                    RIGHT * (prev_right + theme.PAD_XS - float(mob.get_left()[0]))
+                )
+            prev_right = float(mob.get_right()[0])
             holder = VGroup(mob)
             group.add(holder)
             self.label_groups.append(holder)

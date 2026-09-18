@@ -529,3 +529,52 @@ STILL BLOCKED ON A HUMAN (eighth session)
    Write tool.
 2. harness-ci.
 3. default branch.
+
+================================================================================
+SESSION (ninth): two /lib defects in lib/components/stacked.py
+================================================================================
+Both found by an independent review of chatgpt_request_lifecycle, both in /lib
+rather than in the film, so both will follow every future caller.
+
+1. THE LEGEND DID NOT RESERVE ITS NAME COLUMN, AND THE DOCSTRING SAID IT DID
+   _build_legend computed value_width = value_mob.width INSIDE the row loop, so
+   it was that row's own value width, not a reserved column. A row whose value
+   was "7" therefore handed its name more room than a row whose value was
+   "2,400", and utils.fit_text shrank only the latter. Measured on the film's
+   own data, the four name heights came out 0.1369 / 0.1155 / 0.1687 / 0.1766 —
+   a 53% spread, not even monotone in name length, and visible at 1080p. This
+   contradicted the module docstring's "Column discipline" section and the
+   inline comment three lines below it.
+   Fixed: the value column is measured once over all rows before the layout
+   loop and reserved for every row.
+   Why the existing test missed it: tests/test_components_structure.py's
+   test_legend_rows_share_a_left_edge_and_a_value_edge asserts left and right
+   EDGES, and those stay perfectly aligned with the bug present — the ragged
+   part is where the NAME stops, not where the row does. The 16x16 luminance
+   snapshot cannot see a type-size change either. A new test asserts that two
+   rows carrying the SAME name but values of very different widths render that
+   name at the same size (identical strings on purpose: ascenders and descenders
+   move a Text's bounding box around, so comparing different strings would
+   measure the font rather than the layout). It fails on the old code — 0.1915
+   against 0.1576.
+
+2. TWO CONSTANTS FOUGHT IN SILENCE, AND THE LABEL LOST
+   A caller who passed min_segment below INLINE_MIN_FRACTION in
+   labels="inline" mode got the worst of both rules: the sliver was floored up
+   so it would be DRAWN, and then _build_inline dropped its label because it was
+   still under 12% of the bar. That is how the prefill beat of
+   chatgpt_request_lifecycle shipped with the number it exists to show missing.
+   Two changes:
+   a. The constructor now REFUSES that combination, with a message naming both
+      constants and both ways out. Dropping a too-narrow label is still correct
+      behaviour, so the opt-out allow_unlabelled_segments=True keeps it for the
+      case where a caption elsewhere names the sliver — tests/snapshot_cases.py
+      and the drop test now say so explicitly.
+   b. An inline label is never shrunk below typography.MIN_READABLE. Raising
+      min_segment alone did not fix the film: fitted to 94% of its segment the
+      label measured 0.0083 of frame height against a 0.020 floor, i.e. drawn
+      and illegible, which is the dropped-label bug with extra steps. A label
+      may now overhang its own segment, and a cursor pushes each label clear of
+      the previous one so they can never overlap each other.
+   Both behaviours have tests. No baseline moved: the inline snapshot case keeps
+   its dropped label, and the legend case's rows keep their edges.

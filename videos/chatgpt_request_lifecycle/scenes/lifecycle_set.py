@@ -404,9 +404,45 @@ class LifecycleSet(VGroup):
         #: five, and ten bright ones at once is noise rather than emphasis.
         self.resting_glow = 0.16
 
+        # The bot check is an `IconTile`, not a `Station`, so none of Station's
+        # wide-label machinery applies to it — and nothing said so. Its close-up
+        # caption measured 0.0073 of frame height at SHOT_WIDE=58, 2.7x under
+        # typography.MIN_READABLE (0.020): at the pull-back, one of the ten
+        # nodes was an illegible smudge standing next to nine marquee-sized
+        # names. validate()'s readability audit walked `_stations()`, which by
+        # definition cannot reach a tile, so the assertion that exists to catch
+        # exactly this had a hole precisely where the problem was. Both halves
+        # are fixed: the tile gets a pull-back label here, and the audit in
+        # validate() now includes it.
+        #
+        # Sized to the free corridor between the chat window and the Edge bay
+        # rather than to the 1.8-wide tile, because a label typed for the tile
+        # would be back under the floor. The corridor is DERIVED from the two
+        # neighbours, so moving either one cannot silently make this collide.
+        corridor = float(self.edge.bay.get_left()[0]) - float(self.chat.get_right()[0])
+        self.check_wide_label = typography.text(
+            "heading", "bot check", frame_width=SHOT_WIDE,
+            color=self.bot_check.accent, bold=True,
+        )
+        check_factor = min(corridor * 0.88 / float(self.check_wide_label.width), 1.0)
+        if check_factor < 1.0:
+            self.check_wide_label.scale(check_factor)
+        self.check_wide_label.move_to(
+            np.array([
+                0.5 * (float(self.edge.bay.get_left()[0])
+                       + float(self.chat.get_right()[0])),
+                float(self.bot_check.tile.get_bottom()[1])
+                - theme.PAD_SM
+                - 0.5 * float(self.check_wide_label.height),
+                0.0,
+            ])
+        )
+
         # Wide-shot labels stay dark until the pull-back: at a close-up they are
         # several times the size of anything else on screen.
-        self.wide_labels = VGroup(self.llm.caption, self.return_label)
+        self.wide_labels = VGroup(
+            self.llm.caption, self.return_label, self.check_wide_label
+        )
         self.wide_labels.set_opacity(0.0)
 
         self.add(
@@ -423,6 +459,7 @@ class LifecycleSet(VGroup):
             self.rail_stream_home,
             self.rail_after_spur,
             self.return_label,
+            self.check_wide_label,
             self.llm,
             *self._stations(),
             self.bot_check,
@@ -512,7 +549,12 @@ class LifecycleSet(VGroup):
             clearance = float(station.bay.get_bottom()[1]) - box_top
             if clearance < 1.0:
                 raise AssertionError(
-                    f"the {station.title_mob.text} bay sits {clearance:.2f} above "
+                    # {clearance:.3f}, not :.2f — a clearance of 0.998 printed
+                    # as "sits 1.00 above ... under the 1.0 minimum", so the one
+                    # message a maintainer sees when this trips read as a
+                    # contradiction and sent the last reader looking for a bug
+                    # in the assertion instead of in the layout.
+                    f"the {station.title_mob.text} bay sits {clearance:.3f} above "
                     "the inference stack, which is under the 1.0 minimum. The "
                     "top band and the box would read as one machine at the "
                     "pull-back. Raise BAND_TOP_Y or shorten the column."
@@ -520,15 +562,19 @@ class LifecycleSet(VGroup):
         stream_gap = box_bottom - float(self.stream.bay.get_top()[1])
         if stream_gap < 1.0:
             raise AssertionError(
-                f"the box bottom is only {stream_gap:.2f} above the stream bay. "
+                f"the box bottom is only {stream_gap:.3f} above the stream bay. "
                 "The rail out of the column needs visible run before it turns. "
                 "Lower BAND_BOT_Y or shorten the column."
             )
         after_drop = BAND_BOT_Y - float(self.after.bay.get_top()[1])
         if after_drop < 1.5:
             raise AssertionError(
-                f"the after bay's top is only {after_drop:.2f} below the bottom "
-                "band, so the return rail at y={BAND_BOT_Y} would run through "
+                # Every fragment carries the f prefix. An earlier version had
+                # it on the first line only, so a maintainer who tripped this
+                # assertion was told the rail runs "at y={BAND_BOT_Y}" —
+                # literally, braces and all.
+                f"the after bay's top is only {after_drop:.3f} below the bottom "
+                f"band, so the return rail at y={BAND_BOT_Y} would run through "
                 "it. Move the after bay further down."
             )
         for name, edge in (
@@ -537,7 +583,7 @@ class LifecycleSet(VGroup):
         ):
             if edge - RETURN_X < 1.0:
                 raise AssertionError(
-                    f"RETURN_X={RETURN_X} is only {edge - RETURN_X:.2f} left of "
+                    f"RETURN_X={RETURN_X} is only {edge - RETURN_X:.3f} left of "
                     f"{name}. The climb home would graze it — and a comet's "
                     "chords reach further than the rail does. Move RETURN_X "
                     "left."
@@ -569,6 +615,10 @@ class LifecycleSet(VGroup):
             if st.wide_label is not None
         ]
         items += [
+            # The bot check is a tile, so `_stations()` never reaches it and its
+            # label used to be audited by nothing at all — see the note where
+            # `check_wide_label` is built.
+            ("the bot check wide label", self.check_wide_label),
             ("the box title", self.llm.caption.copy().rotate(-np.pi / 2)),
             ("the return label", self.return_label.copy().rotate(-np.pi / 2)),
         ]
@@ -706,6 +756,13 @@ class LifecycleSet(VGroup):
         back as a solid blob.
         """
         anims = [self.wide_labels.animate.set_opacity(opacity)]
+        # The tile's own cross-fade, matching every bay's: the close-up caption
+        # (0.0073 of frame height out here) goes dark as the pull-back label
+        # comes up, so the node carries exactly one name at any distance.
+        if self.bot_check.label_mob is not None:
+            anims.append(
+                self.bot_check.label_mob.animate.set_opacity(1.0 - opacity)
+            )
         for station in self._stations():
             anims.extend(station.reveal_wide(opacity))
         return anims

@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from manim import Dot
 
-from lib import theme
+from lib import theme, typography
 from lib.components.chat_ui import (
     ChatBubble,
     ChatInput,
@@ -795,6 +795,62 @@ def test_legend_rows_share_a_left_edge_and_a_value_edge():
     assert values == pytest.approx([values[0]] * 3, abs=1e-6)
 
 
+def test_legend_names_are_one_size_whatever_their_row_s_value_measures():
+    """The value column is RESERVED, so a "7" row and a "2,400" row leave the
+    same room for the name.
+
+    The regression this catches: `value_width` used to be *that row's own*
+    value width, so a row whose number was short handed its name more room and
+    `fit_text` shrank only the rows with long numbers. Two rows carrying the
+    SAME name then rendered at different sizes — 0.1915 against 0.1576 here, a
+    21% spread, and on the film's own data a 53% one.
+    `test_legend_rows_share_a_left_edge_and_a_value_edge` cannot see it: the
+    edges stay aligned with the bug present, because the ragged part is where
+    the name STOPS, not where the row does. Neither can the 16x16 luminance
+    snapshot.
+
+    The names are identical on purpose — glyph ascenders and descenders move a
+    Text's bounding-box height around, so comparing two different strings would
+    measure the font, not the layout.
+    """
+    name = "system prompt and tool definitions"
+    bar = SegmentedBar(
+        [(name, 2400), (name, 7)],
+        length=5.0,
+        labels="legend",
+    )
+    heights = [float(row[1].height) for row in bar.legend]
+    assert heights[0] == pytest.approx(heights[1], rel=1e-6), (
+        f"legend name heights disagree: {heights}. Same string, same row "
+        "width — only a per-row value column can make these differ."
+    )
+    # And the names really are being fitted, or the assertion above is vacuous.
+    assert bar.legend[0][1].width < typography.text(
+        "micro", name, frame_width=13.6
+    ).width
+
+
+def test_inline_mode_refuses_a_min_segment_that_guarantees_unlabelled_segments():
+    """min_segment under INLINE_MIN_FRACTION draws a segment and then drops its
+    label — the two constants must not disagree in silence."""
+    with pytest.raises(ValueError) as excinfo:
+        SegmentedBar(
+            {"cached prefix": 3900, "new tail": 37},
+            labels="inline",
+            min_segment=0.05,
+        )
+    message = str(excinfo.value)
+    assert "min_segment" in message and "INLINE_MIN_FRACTION" in message
+    # Opt-out still works, and legend mode is unaffected.
+    SegmentedBar(
+        {"cached prefix": 3900, "new tail": 37},
+        labels="inline",
+        min_segment=0.05,
+        allow_unlabelled_segments=True,
+    )
+    SegmentedBar({"cached prefix": 3900, "new tail": 37}, min_segment=0.05)
+
+
 def test_legend_prints_the_true_value_not_the_drawn_one():
     bar = SegmentedBar({"prompt": 3930, "yours": 7}, min_segment=0.2)
     assert bar.legend[1][2].text == "7"
@@ -827,6 +883,29 @@ def test_emphasise_names_the_alternatives_when_it_cannot_find_the_segment():
         bar.emphasise("c")
 
 
+def test_an_inline_label_is_never_shrunk_below_the_readability_floor():
+    """A drawn-but-illegible label is the dropped-label bug with extra steps.
+
+    The narrow segment here is held up by `min_segment`, so it keeps its label
+    — and fitting that label to 94% of the segment used to type it at 0.008 of
+    frame height against typography.MIN_READABLE of 0.020. It is allowed to
+    overhang its own segment instead, but never to overlap its neighbour.
+    """
+    bar = SegmentedBar(
+        {"cached prefix": 3900, "new tail": 37},
+        length=3.4,
+        thickness=0.4,
+        labels="inline",
+        min_segment=0.14,
+        frame_width=13.6,
+    )
+    shares = [typography.measure(g, 13.6) for g in bar.label_groups]
+    assert all(len(g) for g in bar.label_groups), "both segments keep a label"
+    assert min(shares) >= typography.MIN_READABLE - 1e-9, shares
+    left, right = bar.label_groups
+    assert left.get_right()[0] < right.get_left()[0], "labels must not overlap"
+
+
 def test_inline_labels_are_dropped_for_segments_too_narrow_to_hold_them():
     """A name squeezed into 5% of the bar is a smear, not a label."""
     bar = SegmentedBar(
@@ -834,6 +913,7 @@ def test_inline_labels_are_dropped_for_segments_too_narrow_to_hold_them():
         length=5.0,
         labels="inline",
         min_segment=0.02,
+        allow_unlabelled_segments=True,
     )
     assert bar.drawn_fractions[1] < INLINE_MIN_FRACTION
     assert len(bar.label_groups[0]) == 1, "the wide segment keeps its label"
