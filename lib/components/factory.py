@@ -30,6 +30,11 @@ from manim import (
 from lib import theme, typography, utils
 
 
+#: Largest share of a wide bay's width a left-hand header may take. The rest is
+#: the slot, which a close-up needs for its content.
+HEADER_SHARE = 0.58
+
+
 class Station(VGroup):
     """One labelled bay in the factory, with a slot for whatever it is showing.
 
@@ -40,6 +45,10 @@ class Station(VGroup):
     icon:
         Optional vendored icon name (see ``lib.components.glyph``), drawn beside
         the title. Strongly preferred over a bare labelled box.
+    wide_label:
+        Text naming this bay at the pull-back, drawn inside it with the icon and
+        sized for ``wide_width``. Preferred over ``marquee`` for a tight layout:
+        it fills the bay instead of crowding the space beside it.
     marquee_side:
         Which side of the bay the marquee sits on: ``"up"``, ``"down"``,
         ``"left"`` or ``"right"``. A vertical column wants ``"left"`` or
@@ -52,6 +61,12 @@ class Station(VGroup):
         rather than above so it cannot collide with an enclosing
         :class:`PipelineBox` title, and it is clamped to the bay width so
         neighbouring stations' marquees cannot overlap each other.
+    wide_label:
+        Text naming this bay at the pull-back, drawn *inside* it alongside the
+        icon and sized for ``wide_width``. Preferred over ``marquee`` in a tight
+        layout: it fills the bay rather than crowding the space beside it, and
+        an empty lit rectangle at the wide shot reads as a UI mockup rather than
+        a machine.
     """
 
     def __init__(
@@ -64,6 +79,7 @@ class Station(VGroup):
         accent=None,
         icon: str | None = None,
         header_side: str = "top",
+        wide_label: str | None = None,
         marquee: str | None = None,
         marquee_side: str = "down",
         marquee_role: str = "display",
@@ -90,8 +106,11 @@ class Station(VGroup):
         # `wide_width` is the final pull-back the marquee has to survive.
         self.shot_width = shot_width
         self.wide_width = wide_width
+        # Bold: a bay title has to survive the pull-back, where thin stems
+        # antialias into grey against a dark bay long before the glyph gets too
+        # small to recognise. Weight buys contrast that size alone does not.
         self.title_mob = typography.text(
-            "heading", title, frame_width=shot_width, color=theme.FG
+            "heading", title, frame_width=shot_width, color=theme.FG, bold=True
         )
         utils.fit_text(self.title_mob, width - 2 * theme.PAD_MD)
 
@@ -137,6 +156,12 @@ class Station(VGroup):
                 if self.icon is not None
                 else VGroup(words)
             )
+            # Cap the header's share of the bay before placing it. Clamping to
+            # the full bay width stops it overflowing but leaves the slot with
+            # nothing, so a close-up has nowhere to put its content.
+            limit = width * HEADER_SHARE
+            if header.width > limit:
+                header.scale(limit / header.width)
             header.move_to(self.bay.get_left() + RIGHT * (header.width / 2 + theme.PAD_MD))
 
         self.header = header
@@ -144,6 +169,34 @@ class Station(VGroup):
 
         self.content = VGroup()
         self.add(self.content)
+
+        # The wide-shot identity of this bay. At the pull-back the close-up
+        # header is a couple of pixels tall, and an empty lit rectangle reads as
+        # a UI mockup rather than a machine — so the bay names itself, inside,
+        # at a size meant for that shot. Hidden until the pull-back reveals it.
+        self.wide_label = None
+        if wide_label:
+            from lib.components.glyph import Glyph
+
+            words = typography.text(
+                "heading", wide_label, frame_width=wide_width,
+                color=self.accent, bold=True,
+            )
+            parts = [words]
+            if icon:
+                parts.insert(
+                    0, Glyph(icon, color=self.accent, height=words.height * 1.25)
+                )
+            label = VGroup(*parts).arrange(RIGHT, buff=theme.PAD_MD)
+            factor = min(
+                (width * 0.82) / label.width, (height * 0.62) / label.height, 1.0
+            )
+            if factor < 1.0:
+                label.scale(factor)
+            label.move_to(self.bay.get_center())
+            label.set_opacity(0.0)
+            self.wide_label = label
+            self.add(label)
 
         self.marquee = None
         if marquee:
@@ -245,6 +298,23 @@ class Station(VGroup):
         self.bay.set_fill(theme.BG_ELEVATED, opacity=1.0)
         return self
 
+    def reveal_wide(self, opacity: float = 1.0) -> list:
+        """Animations swapping the close-up header for the wide-shot label.
+
+        They occupy the same bay, so this is a cross-fade, not two reveals. The
+        close-up header is a couple of pixels tall at the pull-back and only
+        muddies the name that replaces it.
+        """
+        if self.wide_label is None:
+            return []
+        # The label may have been re-parented out of this group by the set (see
+        # FactorySet), so address it directly rather than through the station.
+        anims = [self.wide_label.animate.set_opacity(opacity)]
+        anims.append(self.header.animate.set_opacity(1.0 - opacity))
+        if self.content is not None and len(self.content):
+            anims.append(self.content.animate.set_opacity(1.0 - opacity))
+        return anims
+
     def reveal_marquee(self, opacity: float = 1.0) -> "Station":
         if self.marquee is not None:
             self.marquee.set_opacity(opacity)
@@ -270,6 +340,7 @@ class PipelineBox(VGroup):
         subtitle: str | None = None,
         pad: float = 2.2,
         accent=None,
+        title_role: str = "title",
         wide_width: float = 25.0,
         **kwargs,
     ) -> None:
@@ -296,7 +367,7 @@ class PipelineBox(VGroup):
         # — station marquees, in this repo's case — and the collision is only
         # visible at the one shot where both are on screen.
         self.title_mob = typography.text(
-            "title", title, frame_width=wide_width, color=self.accent, bold=True
+            title_role, title, frame_width=wide_width, color=self.accent, bold=True
         )
         self.subtitle_mob = None
         if subtitle:
@@ -310,6 +381,10 @@ class PipelineBox(VGroup):
         if self.subtitle_mob is not None:
             header.add(self.subtitle_mob)
             header.arrange(DOWN, buff=theme.PAD_XS)
+        # Clamp to the box: a caption wider than the thing it names reads as a
+        # banner across the whole frame and collides with whatever sits above.
+        if header.width > self.frame.width:
+            header.scale(self.frame.width / header.width)
         header.next_to(self.frame.get_top(), UP, buff=theme.PAD_SM)
         self.caption = header
         self.add(self.frame, header)

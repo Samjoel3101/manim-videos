@@ -89,12 +89,15 @@ class Glowing(VGroup):
         return self._on
 
     def on(self, intensity: float = 1.0) -> "Glowing":
-        self.halo.set_opacity(intensity)
+        # Stroke only. `set_opacity` would also raise the copies' FILL opacity,
+        # turning a dozen transparent outlines into a dozen opaque plates that
+        # bury whatever the glowing shape contains.
+        self.halo.set_stroke(opacity=intensity)
         self._on = intensity > 0
         return self
 
     def off(self) -> "Glowing":
-        self.halo.set_opacity(0.0)
+        self.halo.set_stroke(opacity=0.0)
         self._on = False
         return self
 
@@ -139,11 +142,18 @@ def arrive(node, halo=None, *, scale: float = 1.05, run_time: float = motion.D_S
     travels a connector and the machine at the far end reacts on contact, rather
     than every box sitting lit from the first frame. Returns animations to play
     together at the moment of arrival.
+
+    Pass a SHAPE, not a container group. Scaling a ``VGroup`` interpolates the
+    group's own rgba — transparent by default — onto its children, so every
+    label inside comes out dimmed. This cost a long debugging session; the
+    symptom looks like a colour bug, not a grouping one.
     """
     anims = [node.animate(run_time=run_time, rate_func=motion.SNAP).scale(scale).build()]
     if halo is not None:
         anims.append(
-            halo.animate(run_time=run_time, rate_func=motion.ENTER).set_opacity(1.0).build()
+            halo.animate(run_time=run_time, rate_func=motion.ENTER)
+            .set_stroke(opacity=1.0)
+            .build()
         )
     return anims
 
@@ -157,7 +167,7 @@ def settle(node, halo=None, *, scale: float = 1.05, residual: float = 0.3,
     if halo is not None:
         anims.append(
             halo.animate(run_time=run_time, rate_func=motion.EXIT)
-            .set_opacity(residual)
+            .set_stroke(opacity=residual)
             .build()
         )
     return anims

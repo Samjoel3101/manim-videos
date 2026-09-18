@@ -41,9 +41,11 @@ Two consequences of the shape, both deliberate:
   shrinking into it. Fixed-size type is what made an earlier 3.6x cut
   illegible — not the zoom itself.
 
-The column leaves the sides of a 16:9 frame empty, so station marquees sit
-*beside* their bays rather than above them: it spends margin that would
-otherwise be wasted, and keeps the stack short.
+Each bay carries ONE title, always visible, sized for a shot midway between the
+close-up and the pull-back. Two labels per bay — a small one for the close-up
+and a large one revealed at the end — was tried and removed: they overlapped,
+and the opacity animation that swapped them fought the `arrive`/`settle` scaling
+applied to the same group, leaving the labels dimmed.
 """
 
 from __future__ import annotations
@@ -59,15 +61,20 @@ from lib.components.glyph import IconTile
 # --- shot sizes this set is designed for -----------------------------------
 #: The close-up every station gets. Bays are wide and short, so this is
 #: narrower than a square-bay layout would need.
-SHOT_TIGHT = 11.0
+SHOT_TIGHT = 13.6
+#: Bay titles are sized for this, deliberately between the close-up and the
+#: pull-back, so one label reads at both instead of needing two. Pushed well
+#: past the readability floor because the floor is about glyph HEIGHT, and a
+#: thin stem on a dark bay turns grey before it turns small.
+SHOT_LABEL = 26.0
 #: The final pull-back. Marquees and the box title are sized against this, and
 #: `validate()` fails if the real figure drifts away from it.
-SHOT_WIDE = 45.5
+SHOT_WIDE = 48.5
 
 # --- world anchors ---------------------------------------------------------
 COLUMN_X = 0.0
 
-STATION_W, STATION_H = 7.8, 2.4
+STATION_W, STATION_H = 9.6, 2.4
 STATION_GAP = 0.75
 
 CHAT_H = 3.8
@@ -86,7 +93,7 @@ class FactorySet(VGroup):
         super().__init__(**kwargs)
 
         # -- the four stations, stacked top to bottom -------------------------
-        def station(title, subtitle, accent, icon, marquee):
+        def station(title, subtitle, accent, icon):
             return Station(
                 title,
                 subtitle=subtitle,
@@ -95,25 +102,26 @@ class FactorySet(VGroup):
                 accent=accent,
                 icon=icon,
                 header_side="left",
-                marquee=marquee,
-                marquee_side="left",
-                marquee_role="title",
-                marquee_max_width=5.4,
-                shot_width=SHOT_TIGHT,
+                # ONE label, always visible, sized for a shot between the
+                # close-up and the pull-back. Revealing a second, larger label
+                # at the pull-back meant two labels in one bay and an opacity
+                # dance that dimmed them; a single compromise size reads at both
+                # distances and cannot get out of sync with itself.
+                shot_width=SHOT_LABEL,
                 wide_width=SHOT_WIDE,
             )
 
         self.tokenizer = station(
-            "Tokenizer", "text → ids", theme.TOKEN, "binary", "TOKENIZE"
+            "Tokenizer", "text → ids", theme.TOKEN, "binary"
         )
         self.embedder = station(
-            "Embedding", "ids → vectors", theme.EMBED, "grid-3x3", "EMBED"
+            "Embedding", "ids → vectors", theme.EMBED, "grid-3x3"
         )
         self.transformer = station(
-            "Transformer", "96 layers", theme.ATTENTION, "layers", "ATTEND"
+            "Transformer", "96 layers", theme.ATTENTION, "layers"
         )
         self.sampler = station(
-            "Sampling", "vector → token", theme.PROB, "dices", "SAMPLE"
+            "Sampling", "vector → token", theme.PROB, "dices"
         )
 
         self.stations = [self.tokenizer, self.embedder, self.transformer, self.sampler]
@@ -131,9 +139,12 @@ class FactorySet(VGroup):
         self.llm = PipelineBox(
             [st.bay for st in self.stations],
             title="THE MODEL",
-            subtitle="one forward pass",
             accent=theme.ASSISTANT,
             pad=0.9,
+            # One step down from `title`, and no subtitle: at the pull-back this
+            # names the machine, it does not headline the film. A caption sized
+            # for the whole frame collided with the server sitting above it.
+            title_role="heading",
             wide_width=SHOT_WIDE,
         )
         box_top = float(self.llm.frame.get_top()[1])
@@ -144,7 +155,12 @@ class FactorySet(VGroup):
         self.server = IconTile(
             "server", label="web server", color=theme.NETWORK, size=SERVER_SIZE
         )
-        server_y = box_top + STACK_GAP + SERVER_SIZE / 2
+        # Above the box *caption*, not the box: the caption sits outside the
+        # frame, and measuring from the frame is what put the server on top of
+        # the words.
+        server_y = (
+            float(self.llm.caption.get_top()[1]) + STACK_GAP + SERVER_SIZE / 2
+        )
         self.server.shift(
             np.array([COLUMN_X, server_y, 0.0]) - self.server.tile.get_center()
         )
@@ -222,13 +238,14 @@ class FactorySet(VGroup):
         # Pre-built and invisible. Lighting a node up is the house cue for "this
         # is running"; building the halos here means the choreography only ever
         # animates an opacity, and no beat pays to construct one mid-shot.
+        # Stroke opacity only — see effects.Glowing.on for why fill must stay 0.
         self.server_glow = effects.glow(self.server.tile, theme.NETWORK)
-        self.server_glow.set_opacity(0.0)
+        self.server_glow.set_stroke(opacity=0.0)
         self._glows = {}
         halos = VGroup(self.server_glow)
         for st in self.stations:
             halo = effects.glow(st.bay, st.accent)
-            halo.set_opacity(0.0)
+            halo.set_stroke(opacity=0.0)
             self._glows[id(st)] = halo
             halos.add(halo)
         self.halos = halos
@@ -237,6 +254,10 @@ class FactorySet(VGroup):
         # would be several times the size of anything else on screen.
         self.wide_labels = VGroup(self.llm.caption, self.return_label)
         self.wide_labels.set_opacity(0.0)
+
+        #: Residual glow left on a bay once the pull-back is running. Low: four
+        #: brightly lit rectangles at once is noise, not emphasis.
+        self.resting_glow = 0.18
 
         self.add(
             halos,
@@ -277,7 +298,16 @@ class FactorySet(VGroup):
         # The end-of-film loop is sampled once per frame and drawn with straight
         # chords, so a corner taken too fast can cut across something the path
         # itself misses. Checked at the frame budget the loop actually gets.
-        routing.assert_trail_clears(self.return_rail, obstacles, steps=30)
+        # The end-of-film loop traverses the WHOLE circuit in ~1.7s at 30fps, so
+        # any one stretch gets only its share of those ~51 frames. The descent
+        # is meant to pass through the bays; it is the way home that must stay
+        # clear, so check that stretch at the budget it actually receives.
+        circuit_len = routing.length(self.circuit())
+        home_len = routing.length(self.return_rail)
+        home_frames = max(6, int(51 * home_len / circuit_len))
+        routing.assert_trail_clears(
+            self.return_rail, obstacles, steps=home_frames, ignore_ends=0.05
+        )
 
         actual = self.wide_frame_width()
         drift = abs(actual - SHOT_WIDE) / SHOT_WIDE
@@ -347,8 +377,17 @@ class FactorySet(VGroup):
             self.server,
             self.llm,
             self.return_rail,
-            *[st.marquee for st in self.stations if st.marquee is not None],
         )
+
+    def pulse_target(self, node):
+        """The SHAPE to animate for an arrival pop, never the container group.
+
+        Scaling a `Station` (a VGroup) interpolates the group's own rgba — which
+        is transparent — down onto its children, so every label inside it comes
+        out dimmed. Animating the bay rectangle itself has the same visual
+        effect and none of that.
+        """
+        return node.tile if node is self.server else node.bay
 
     @property
     def nodes(self) -> list:
@@ -357,11 +396,4 @@ class FactorySet(VGroup):
 
     def reveal_labels(self, opacity: float = 1.0):
         """Animations bringing up every wide-shot label for the pull-back."""
-        return [
-            *[
-                st.marquee.animate.set_opacity(opacity)
-                for st in self.stations
-                if st.marquee is not None
-            ],
-            self.wide_labels.animate.set_opacity(opacity),
-        ]
+        return [self.wide_labels.animate.set_opacity(opacity)]

@@ -141,6 +141,7 @@ def chord_violations(
     steps: int,
     clearance: float = 0.0,
     resolution: int = 12,
+    ignore_ends: float = 0.0,
 ) -> list[int]:
     """Obstacles hit by the *straight chords* a trail actually draws.
 
@@ -161,7 +162,12 @@ def chord_violations(
 
     boxes = [bbox(o, pad=clearance) for o in obstacles]
     hits: set[int] = set()
-    samples = [vm.point_from_proportion(i / steps) for i in range(steps + 1)]
+    lo, hi = ignore_ends, 1.0 - ignore_ends
+    samples = [
+        vm.point_from_proportion(a)
+        for a in (i / steps for i in range(steps + 1))
+        if lo <= a <= hi
+    ]
 
     for start, end in zip(samples, samples[1:]):
         for t in range(resolution + 1):
@@ -216,8 +222,20 @@ def assert_path_clears(path, named_obstacles: Sequence[tuple[str, Mobject]], **k
         )
 
 
+def length(path) -> float:
+    """Approximate arc length of a path, for budgeting frames across segments."""
+    vm = path
+    if hasattr(vm, "path"):
+        vm = vm.path
+    if not isinstance(vm, VMobject):
+        vm = join(vm)
+    pts = [vm.point_from_proportion(i / 200) for i in range(201)]
+    return float(sum(np.linalg.norm(b - a) for a, b in zip(pts, pts[1:])))
+
+
 __all__ = [
     "as_points",
+    "length",
     "elbow",
     "join",
     "bbox",

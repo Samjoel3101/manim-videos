@@ -53,8 +53,10 @@ ANSWER = "It turns your words into numbers, then predicts the next one."
 #: A tight shot must clear the 5.2-tall station bay *and* the caption beneath
 #: it: at 16:9 a width of 12 gives 6.75 of frame height, which is the minimum
 #: that does not clip. Anything smaller crops the bottom row of content.
-W_TIGHT = 12.0
-W_CHAT = 12.0
+# Must clear a 9.6-wide bay with margin; kept in step with the set's SHOT_TIGHT,
+# which is what the in-bay type is sized against.
+W_TIGHT = 13.6
+W_CHAT = 11.0
 W_MEDIUM = 17.0
 W_WIDE = 26.0
 
@@ -117,7 +119,7 @@ class TheFactory(MovingCameraScene):
             rate_func=motion.MOVE,
         )
         self.play(
-            s.glow_for(s.server).animate.set_opacity(1.0),
+            s.glow_for(s.server).animate.set_stroke(opacity=1.0),
             self.packet.animate.move_to(s.server.tile.get_center()),
             run_time=0.5,
             rate_func=motion.SNAP,
@@ -125,7 +127,7 @@ class TheFactory(MovingCameraScene):
         self.play(
             self.packet.animate.move_to(s.rail_server_to_model.end),
             camera.focus(self, s.llm, width=W_WIDE + 12, run_time=0.9),
-            s.glow_for(s.server).animate.set_opacity(0.3),
+            s.glow_for(s.server).animate.set_stroke(opacity=0.3),
             run_time=0.9,
             rate_func=motion.MOVE,
         )
@@ -143,7 +145,7 @@ class TheFactory(MovingCameraScene):
         station.fit(strip)
 
         self.play(
-            s_glow(self, station).animate.set_opacity(1.0),
+            s_glow(self, station).animate.set_stroke(opacity=1.0),
             run_time=0.25,
             rate_func=motion.ENTER,
         )
@@ -167,7 +169,7 @@ class TheFactory(MovingCameraScene):
         )
         self.play(
             FadeOut(note),
-            s_glow(self, station).animate.set_opacity(0.3),
+            s_glow(self, station).animate.set_stroke(opacity=0.3),
             run_time=0.3,
             rate_func=motion.EXIT,
         )
@@ -190,7 +192,7 @@ class TheFactory(MovingCameraScene):
 
         self.play(
             camera.focus(self, station.bay, width=W_TIGHT, run_time=0.7),
-            s_glow(self, station).animate.set_opacity(1.0),
+            s_glow(self, station).animate.set_stroke(opacity=1.0),
             run_time=0.7,
             rate_func=motion.MOVE,
         )
@@ -216,7 +218,7 @@ class TheFactory(MovingCameraScene):
         self.play(FadeIn(note, shift=UP * theme.PAD_XS), run_time=0.3, rate_func=motion.ENTER)
         self.play(
             FadeOut(note),
-            s_glow(self, station).animate.set_opacity(0.3),
+            s_glow(self, station).animate.set_stroke(opacity=0.3),
             run_time=0.4,
             rate_func=motion.EXIT,
         )
@@ -236,7 +238,7 @@ class TheFactory(MovingCameraScene):
 
         self.play(
             camera.focus(self, station.bay, width=W_TIGHT, run_time=0.7),
-            s_glow(self, station).animate.set_opacity(1.0),
+            s_glow(self, station).animate.set_stroke(opacity=1.0),
             columns.animate.move_to(station.slot_center).set_opacity(0.0),
             FadeIn(stack),
             run_time=0.9,
@@ -257,7 +259,7 @@ class TheFactory(MovingCameraScene):
         self.play(
             FadeOut(note),
             FadeOut(stack),
-            s_glow(self, station).animate.set_opacity(0.3),
+            s_glow(self, station).animate.set_stroke(opacity=0.3),
             run_time=0.4,
             rate_func=motion.EXIT,
         )
@@ -275,7 +277,7 @@ class TheFactory(MovingCameraScene):
 
         self.play(
             camera.focus(self, station.bay, width=W_TIGHT, run_time=0.7),
-            s_glow(self, station).animate.set_opacity(1.0),
+            s_glow(self, station).animate.set_stroke(opacity=1.0),
             vector.animate.move_to(station.slot_center).set_opacity(0.0),
             FadeIn(chart),
             run_time=0.9,
@@ -299,7 +301,7 @@ class TheFactory(MovingCameraScene):
         )
         self.play(Flash(winner, color=theme.ASSISTANT, line_length=0.2), run_time=0.3)
         self.play(
-            s_glow(self, station).animate.set_opacity(0.3),
+            s_glow(self, station).animate.set_stroke(opacity=0.3),
             run_time=0.2,
             rate_func=motion.EXIT,
         )
@@ -363,14 +365,15 @@ class TheFactory(MovingCameraScene):
 
         # Three more tokens run the entire circuit. Same machine, seen whole.
         # Each node reacts as the token reaches it, rather than sitting lit.
-        words_per_pass = max(1, (self.answer.word_count - 3) // 3)
-        for i in range(3):
+        passes = 2
+        words_per_pass = max(1, (self.answer.word_count - 3) // passes)
+        for i in range(passes):
             # Place the runner on the path BEFORE attaching its trail. A comet
             # traces get_center from the frame it is added, so a dot still
             # sitting at the origin draws one long chord across the set on its
             # first frame — which is what made the trail appear to cut through
             # the machines.
-            runner = Dot(radius=0.30, color=theme.TOKEN)
+            runner = Dot(radius=0.22, color=theme.TOKEN)
             runner.move_to(loop.point_from_proportion(0))
             # Short dissipation: at this speed a long tail stops reading as a
             # comet and starts reading as a line drawn through the machines.
@@ -378,26 +381,26 @@ class TheFactory(MovingCameraScene):
                                   dissipating_time=0.14)
             self.add(spark, runner)
             self.play(
-                MoveAlongPath(runner, loop, run_time=1.05),
+                MoveAlongPath(runner, loop, run_time=1.7),
+                # Glow only — no scale pop. Animating a node's geometry here
+                # meant animating a VGroup, which interpolates the group's own
+                # (transparent) rgba onto its children and blanked every label
+                # in the bay. The light alone reads as the machine reacting.
                 LaggedStart(
                     *[
-                        AnimationGroup(
-                            *effects.arrive(node, s.glow_for(node), run_time=0.14),
-                        )
+                        s.glow_for(node).animate.set_stroke(opacity=1.0)
                         for node in s.nodes
                     ],
                     lag_ratio=0.22,
                 ),
-                run_time=1.05,
+                run_time=1.7,
                 rate_func=motion.MOVE,
             )
             self.remove(runner, spark)
             self.play(
                 LaggedStart(
                     *[
-                        AnimationGroup(
-                            *effects.settle(node, s.glow_for(node), run_time=0.12)
-                        )
+                        s.glow_for(node).animate.set_stroke(opacity=s.resting_glow)
                         for node in s.nodes
                     ],
                     lag_ratio=0.12,

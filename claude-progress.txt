@@ -238,3 +238,56 @@ NEXT
 - The chat window is small at a 3.24x pull-back; if the reply needs to be
   readable in the final wide shot, the chat has to be larger in world space,
   which changes every earlier shot.
+
+----------------------------------------------------------------------
+SESSION 5 — the ending: typography and the glow-over-label bug.
+
+WHY
+Review: "the last typography that appears is bad and the box getting coloured is
+very bad."
+
+WHAT IT ACTUALLY WAS
+Two separate bugs, both of which present as "the text is grey":
+
+1. `set_opacity` on a glow halo. A halo is twelve COPIES of the bay with fill
+   cleared; set_opacity raises fill opacity too, so at full glow they became
+   twelve opaque plates sitting over the bay's own contents. Every label inside
+   a lit bay was buried. The tell, once I finally rendered a frame with a title
+   wide enough to overflow its bay: the part of the text OUTSIDE the bay was
+   bright white and the part inside was dark. Fixed by animating
+   set_stroke(opacity=...) everywhere a halo is involved.
+2. Animating the Station VGroup itself (effects.arrive/settle called
+   `station.animate.scale`). A VGroup carries its own rgba, transparent by
+   default, and interpolating it drags children's opacity down. Dropped the
+   scale pop; the glow alone reads as the node reacting.
+
+I burned a lot of this session chasing (1) through the model rather than the
+render: every instrumented check said opacity 1.0 and colour #F2A93B at every
+beat, because the model WAS correct — it was compositing. The lesson, now in the
+skill: when a label looks wrong, check whether the same text outside the
+container renders correctly before suspecting colour or the type system.
+
+ALSO CHANGED
+- Dropped the two-labels-per-bay scheme (small close-up title + large revealed
+  wide label). They overlapped and needed an opacity swap that fought bug (2).
+  One title, sized for SHOT_LABEL=26 — between the close-up and the pull-back —
+  reads at both and cannot desync from itself.
+- Bay titles are bold: at the pull-back a thin stem antialiases to grey long
+  before the glyph gets too small to read. Weight buys contrast size does not.
+- PipelineBox title is one step smaller, has no subtitle, and is clamped to the
+  box width; the server is positioned above the CAPTION rather than the frame,
+  which is what had it sitting on top of the words.
+- Bays widened to 9.6 and HEADER_SHARE caps a left header at 58% of the bay, so
+  a title sized for a wider shot cannot starve the slot. SHOT_TIGHT raised to
+  13.6 to match, and the scene's W_TIGHT with it.
+- Glow left at a low resting level (0.18) rather than four bays at full.
+
+STILL BLOCKED ON A HUMAN (fifth session)
+1. harness-hook-bash-false-positive.
+2. harness-ci.
+
+NEXT
+- voiceover-pass.
+- The chat window is small at a 3.44x pull-back; if the reply must be readable
+  in the final wide shot, the chat needs to be larger in world space, which
+  changes every earlier shot.

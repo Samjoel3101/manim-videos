@@ -84,9 +84,16 @@ Roles, largest to smallest: `display`, `title`, `heading`, `body`, `label`,
 Nothing may fall below `typo.MIN_READABLE` (2% of frame height) at the shot it
 is read in — `typo.audit()` checks a list of labels against that floor.
 
-**Labels for the wide shot start hidden.** A marquee sized for a 3x pull-back is
-several times the size of everything else in a close-up, so it lives at opacity
-0 until the pull-back reveals it.
+**Prefer one label sized for a shot between the two** over a small close-up
+label plus a large one revealed at the end. Two labels in one bay was tried and
+removed: they overlap, and the opacity dance that swaps them is exactly the kind
+of thing the traps below punish. A single compromise size that clears the floor
+at the pull-back and still fits the bay in close-up is simpler and cannot get
+out of sync with itself.
+
+A container whose header must share space with content needs a cap on the
+header's share (`HEADER_SHARE` in `lib/components/factory.py`), or a title sized
+for the wider shot leaves the slot with nothing.
 
 ## Layout and the zoom budget
 
@@ -124,6 +131,25 @@ instead of following the diagram.*
    stray diagonal through the machines and looked exactly like a routing bug.
 5. Keep `dissipating_time` short (~0.15s) on fast moves.
 6. Rails are orthogonal. Use `routing.elbow()`; diagonals read as sloppy.
+
+## Two traps that look like colour bugs
+
+Both of these cost a long debugging session, and both present as "the text is
+grey" rather than as what they are.
+
+1. **Never call `set_opacity` on a glow halo.** A halo is a dozen *copies of the
+   shape* with their fill cleared; `set_opacity` raises fill opacity too, so the
+   copies become opaque plates that bury whatever the shape contains. Animate
+   `set_stroke(opacity=...)` instead. Symptom: labels inside a glowing box look
+   dim or vanish, while identical text outside the box renders bright — that
+   contrast is the tell.
+2. **Never animate a container `VGroup`'s geometry** (`station.animate.scale`).
+   A VGroup carries its own rgba, transparent by default, and interpolating it
+   drags every child's opacity down. Animate the shape (`station.bay`) or, as
+   here, drop the pop and animate only the light.
+
+When a label looks wrong, check whether the *same text outside the container*
+renders correctly before suspecting the colour or the type system.
 
 ## Motion blur: off
 
