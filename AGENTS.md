@@ -11,6 +11,9 @@ vocabulary already exists in `/lib`.
 | `lib/theme.py` | Colour, type, spacing, timing. The series' visual identity. |
 | `lib/components/` | Reusable visuals as VGroup subclasses. Check here first. |
 | `lib/camera.py` | Camera choreography for continuous, uncut shots. |
+| `lib/motion.py` | **The motion language.** Easing curves and durations. |
+| `lib/effects.py` | Glow, comet trails, pulses. |
+| `lib/assets/icons/` | Vendored Lucide icons (ISC). |
 | `lib/transitions.py`, `lib/utils.py` | Scene transitions; text/layout helpers. |
 | `videos/<slug>/` | One self-contained video. Has its own AGENTS.md. |
 | `tests/` | Structural + visual-regression tests for `/lib`. |
@@ -41,9 +44,12 @@ can change both the work and its grading can pass by weakening the check.
    When a second scene needs a local helper, that is the moment to promote it.
 3. **Every new `/lib` component needs a matching test in `/tests/` before it is
    done.** Structural test always; a snapshot case if it has meaningful layout.
-4. Pull colour, size, spacing and timing from `lib/theme.py`. A hex string or a
-   raw `run_time=0.7` in a scene is a bug — it breaks series consistency.
-5. Leave the repo merge-ready at the end of a session: green Evaluator, updated
+4. Pull colour, size and spacing from `lib/theme.py`, and **easing from
+   `lib/motion.py`**. A hex string in a scene is a bug; so is a `self.play`
+   without a `rate_func=motion.*`. Manim's default easing is not the house look.
+5. **Nodes get icons, not labelled rectangles**, and "this is running" is a glow
+   (`lib/effects.py`), not a thicker border.
+6. Leave the repo merge-ready at the end of a session: green Evaluator, updated
    `feature_list.json` status, an appended `claude-progress.txt` entry.
 
 ## Session start
@@ -106,7 +112,10 @@ dotted path.
 ## Continuous shots
 
 The house format is one uncut camera move through a set that is built once, not
-a sequence of scenes that cut between each other. Practically:
+a sequence of scenes that cut between each other.
+
+**Use the `factory-video` skill** (`.claude/skills/factory-video/`) when building
+or changing one — it carries the full recipe. The essentials:
 
 - Build the set in its own module (`scenes/<name>_set.py`) and the choreography
   in the scene. *Where things are* and *when the camera goes there* are separate
@@ -118,3 +127,5 @@ a sequence of scenes that cut between each other. Practically:
 - A tight shot must clear its subject at 16:9. Frame height is width / 1.78, and
   a shot that crops the bottom of a bay is the commonest bug in this format —
   the tests cannot see it, so look at the frames.
+- Motion blur is a render profile, not a scene concern: `preview` and `final`
+  apply an ffmpeg frame-blend pass automatically. `--no-blur` skips it.

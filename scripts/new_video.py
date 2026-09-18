@@ -59,7 +59,7 @@ RENDER_TEMPLATE = '''#!/usr/bin/env python
 Usage:
     .venv/bin/python videos/{slug}/render.py               # default profile
     .venv/bin/python videos/{slug}/render.py --profile final
-    .venv/bin/python videos/{slug}/render.py --scene UserInput --no-concat
+    .venv/bin/python videos/{slug}/render.py --scene SceneName --no-concat
 """
 
 from __future__ import annotations
@@ -67,6 +67,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import shutil
 import subprocess
 import sys
 
@@ -112,12 +113,33 @@ def concat(parts: list[pathlib.Path], dest: pathlib.Path) -> None:
     listing.unlink(missing_ok=True)
 
 
+def motion_blur(src: pathlib.Path, dest: pathlib.Path, frames: int) -> None:
+    """Blend adjacent frames to fake motion blur.
+
+    Manim has no motion blur. Blending N adjacent frames of a high-fps render is
+    the standard substitute: it costs roughly the clip's own duration and it is
+    what stops fast moves strobing. It is a *finishing* step, so the draft and
+    test profiles skip it — see `motion_blur` in harness.json.
+    """
+    weights = " ".join(["1"] * frames)
+    cmd = [
+        "ffmpeg", "-y", "-v", "error", "-i", str(src),
+        "-vf", f"tmix=frames={{frames}}:weights='{{weights}}'",
+        "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(dest),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise SystemExit(f"ffmpeg motion blur failed:\\n{{result.stderr[-3000:]}}")
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile", default=HARNESS["default_profile"],
                         choices=sorted(HARNESS["render_profiles"]))
     parser.add_argument("--scene", help="render only this scene class")
     parser.add_argument("--no-concat", action="store_true")
+    parser.add_argument("--no-blur", action="store_true",
+                        help="skip the motion-blur finishing pass")
     args = parser.parse_args(argv)
 
     profile = HARNESS["render_profiles"][args.profile]
@@ -136,13 +158,29 @@ def main(argv: list[str]) -> int:
     print(f"{{MANIFEST['title']}} — {{len(scenes)}} scene(s) at {{args.profile}}")
     parts = [render_scene(s, profile, media_dir) for s in scenes]
 
-    if args.no_concat or len(parts) == 1:
+    if args.no_concat:
         for p in parts:
             print(f"  -> {{p}}")
         return 0
 
     dest = media_dir / f"{{SLUG}}_{{args.profile}}.mp4"
-    concat(parts, dest)
+    blur = profile.get("motion_blur", False) and not args.no_blur
+
+    if len(parts) == 1:
+        cut = parts[0]
+    else:
+        cut = media_dir / f"{{SLUG}}_{{args.profile}}_raw.mp4" if blur else dest
+        concat(parts, cut)
+
+    if blur:
+        frames = HARNESS["motion_blur"]["frames"]
+        print(f"  motion blur ({{frames}}-frame blend) …", flush=True)
+        motion_blur(cut, dest, frames)
+    elif cut != dest:
+        shutil.copyfile(cut, dest)
+    else:
+        dest = cut
+
     print(f"\\nfinal cut: {{dest}}")
     return 0
 

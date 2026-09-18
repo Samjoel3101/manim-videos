@@ -3,10 +3,34 @@
   "python": ".venv/bin/python",
   "venv": ".venv",
   "render_profiles": {
-    "test":    { "flag": "-ql",  "resolution": "854x480",   "fps": 15, "dir": "480p15"  },
-    "draft":   { "flag": "-ql",  "resolution": "854x480",   "fps": 15, "dir": "480p15"  },
-    "preview": { "flag": "-qm",  "resolution": "1280x720",  "fps": 30, "dir": "720p30"  },
-    "final":   { "flag": "-qh",  "resolution": "1920x1080", "fps": 60, "dir": "1080p60" }
+    "test": {
+      "flag": "-ql",
+      "resolution": "854x480",
+      "fps": 15,
+      "dir": "480p15",
+      "motion_blur": false
+    },
+    "draft": {
+      "flag": "-ql",
+      "resolution": "854x480",
+      "fps": 15,
+      "dir": "480p15",
+      "motion_blur": false
+    },
+    "preview": {
+      "flag": "-qm",
+      "resolution": "1280x720",
+      "fps": 30,
+      "dir": "720p30",
+      "motion_blur": true
+    },
+    "final": {
+      "flag": "-qh",
+      "resolution": "1920x1080",
+      "fps": 60,
+      "dir": "1080p60",
+      "motion_blur": true
+    }
   },
   "default_profile": "draft",
   "paths": {
@@ -17,7 +41,13 @@
     "output": "out"
   },
   "evaluator": {
-    "gates": ["lint", "import", "unit", "snapshot", "render"],
+    "gates": [
+      "lint",
+      "import",
+      "unit",
+      "snapshot",
+      "render"
+    ],
     "snapshot_tolerance": 0.02,
     "render_profile": "test"
   },
@@ -28,5 +58,10 @@
     "tests/baselines/",
     ".claude/hooks/",
     ".github/workflows/"
-  ]
+  ],
+  "motion_blur": {
+    "$comment": "Frame-blend motion blur applied by render.py as an ffmpeg post-pass. Manim has no motion blur of its own; blending adjacent frames of a high-fps render is the standard substitute and costs about as long as the clip itself.",
+    "frames": 3,
+    "enabled_by_default": true
+  }
 }

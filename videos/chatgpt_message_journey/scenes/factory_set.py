@@ -20,10 +20,10 @@ from __future__ import annotations
 import numpy as np
 from manim import DOWN, LEFT, RIGHT, UP, VGroup
 
-from lib import theme, utils
+from lib import effects, theme, utils
 from lib.components.chat_ui import ChatWindow
 from lib.components.factory import Conveyor, PipelineBox, Station
-from lib.components.network import DeviceNode
+from lib.components.glyph import IconTile
 
 # --- world anchors ---------------------------------------------------------
 CHAT_X = -22.0
@@ -45,12 +45,11 @@ class FactorySet(VGroup):
         self.chat.move_to(np.array([CHAT_X, 0.0, 0.0]))
 
         # -- the web tier -----------------------------------------------------
-        self.server = DeviceNode(
-            "Web server",
-            subtitle="api.openai.com",
-            width=3.6,
-            height=2.4,
+        self.server = IconTile(
+            "server",
+            label="web server",
             color=theme.NETWORK,
+            size=2.6,
         )
         self.server.move_to(np.array([SERVER_X, 0.0, 0.0]))
 
@@ -61,6 +60,7 @@ class FactorySet(VGroup):
             width=STATION_W,
             height=STATION_H,
             accent=theme.TOKEN,
+            icon="binary",
             marquee="TOKENIZE",
         )
         self.embedder = Station(
@@ -69,6 +69,7 @@ class FactorySet(VGroup):
             width=STATION_W,
             height=STATION_H,
             accent=theme.EMBED,
+            icon="grid-3x3",
             marquee="EMBED",
         )
         self.transformer = Station(
@@ -77,6 +78,7 @@ class FactorySet(VGroup):
             width=STATION_W,
             height=STATION_H,
             accent=theme.ATTENTION,
+            icon="layers",
             marquee="ATTEND",
         )
         self.sampler = Station(
@@ -85,6 +87,7 @@ class FactorySet(VGroup):
             width=STATION_W,
             height=STATION_H,
             accent=theme.PROB,
+            icon="dices",
             marquee="SAMPLE",
         )
 
@@ -102,11 +105,11 @@ class FactorySet(VGroup):
 
         # -- rails ------------------------------------------------------------
         self.rail_chat_to_server = Conveyor(
-            [self.chat.get_right() + RIGHT * 0.3, self.server.get_left() + LEFT * 0.3],
+            [self.chat.get_right() + RIGHT * 0.3, self.server.tile.get_left() + LEFT * 0.3],
             chevrons=2,
         )
         self.rail_server_to_llm = Conveyor(
-            [self.server.get_right() + RIGHT * 0.3, self.llm.entry + LEFT * 0.3],
+            [self.server.tile.get_right() + RIGHT * 0.3, self.llm.entry + LEFT * 0.3],
             chevrons=2,
         )
         self.rails_between_stations = VGroup(
@@ -143,8 +146,24 @@ class FactorySet(VGroup):
         self.return_label.move_to(np.array([2.0, RETURN_Y - 1.4, 0.0]))
         self.return_label.set_opacity(0.0)
 
-        # Draw order: rails behind the boxes they connect.
+        # -- glow halos -------------------------------------------------------
+        # Pre-built and invisible. Lighting a node up is the house cue for "this
+        # is running"; building the halos here means the choreography only ever
+        # animates an opacity, and no beat pays to construct one mid-shot.
+        self.server_glow = effects.glow(self.server.tile, theme.NETWORK)
+        self.server_glow.set_opacity(0.0)
+        self._glows = {}
+        halos = VGroup(self.server_glow)
+        for station in self.stations:
+            halo = effects.glow(station.bay, station.accent)
+            halo.set_opacity(0.0)
+            self._glows[id(station)] = halo
+            halos.add(halo)
+        self.halos = halos
+
+        # Draw order: halos and rails behind the things they belong to.
         self.add(
+            halos,
             self.rail_chat_to_server,
             self.rail_server_to_llm,
             self.rails_between_stations,
@@ -156,6 +175,15 @@ class FactorySet(VGroup):
             self.chat,
         )
 
+    def glow_for(self, node) -> VGroup:
+        """The pre-built halo for a station (or the server tile)."""
+        if node is self.server:
+            return self.server_glow
+        try:
+            return self._glows[id(node)]
+        except KeyError:
+            raise KeyError(f"no glow halo built for {node}") from None
+
     # ------------------------------------------------------------------ paths
     def full_loop(self) -> Conveyor:
         """One rail tracing the entire circuit, for the fast cycles at the end.
@@ -165,9 +193,9 @@ class FactorySet(VGroup):
         """
         points = [
             self.chat.get_right() + RIGHT * 0.3,
-            self.server.get_left() + LEFT * 0.3,
+            self.server.tile.get_left() + LEFT * 0.3,
         ]
-        points.append(self.server.get_right() + RIGHT * 0.3)
+        points.append(self.server.tile.get_right() + RIGHT * 0.3)
         for station in self.stations:
             points.append(station.get_center())
         points.extend(list(self.return_rail.path.get_anchors())[1:])
@@ -179,6 +207,11 @@ class FactorySet(VGroup):
     def everything(self) -> VGroup:
         """Used by the final pull-back to frame the whole factory."""
         return VGroup(self.chat, self.server, self.llm, self.return_rail)
+
+    @property
+    def nodes(self) -> list:
+        """Everything that can light up, in pipeline order."""
+        return [self.server, *self.stations]
 
     def reveal_marquees(self, opacity: float = 1.0):
         """Animations fading in the big station labels for the wide shot."""

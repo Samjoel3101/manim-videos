@@ -118,8 +118,71 @@
       ]
     },
     {
+      "id": "lib-motion",
+      "title": "motion.py: the motion language (easing curves + durations)",
+      "status": "passing",
+      "acceptance": [
+        "Curves are real cubic-Beziers matching the published Material values, not approximations",
+        "Every curve starts at 0, ends at 1, is monotonic, and stays in range",
+        "Semantic aliases (ENTER/EXIT/MOVE/SNAP/FEATURE) so call sites say why, not which",
+        "Durations scale sub-linearly with distance and are clamped at both ends",
+        "Exits are shorter than entrances",
+        "Staggered group entrance helper with a non-zero lag ratio"
+      ],
+      "priority": 10
+    },
+    {
+      "id": "lib-effects",
+      "title": "effects.py: glow, comet trails, anticipation pulse",
+      "status": "passing",
+      "acceptance": [
+        "glow() layers widen outward while fading, and never mutate their source",
+        "Glowing starts dark, toggles, and renders its halo behind the core",
+        "comet() follows a travelling mobject for follow-through",
+        "Structural tests plus a glow snapshot baseline"
+      ],
+      "priority": 11
+    },
+    {
+      "id": "lib-glyph",
+      "title": "glyph.py + vendored icon set: Glyph and IconTile",
+      "status": "passing",
+      "acceptance": [
+        "Icons are vendored (ISC-licensed Lucide), so renders are reproducible offline",
+        "Icons render stroked, not filled",
+        "Lucide's zero-length indicator dots are restored rather than silently dropped",
+        "A missing icon name raises an error that lists the alternatives",
+        "Station accepts an icon and still lays content out below the full header",
+        "Structural tests plus glyph_row, icon_tile and station_with_icon baselines"
+      ],
+      "priority": 12
+    },
+    {
+      "id": "harness-motion-blur",
+      "title": "Motion blur as a render-profile finishing pass",
+      "status": "passing",
+      "acceptance": [
+        "preview and final profiles apply an ffmpeg frame-blend pass; test and draft do not",
+        "--no-blur skips it",
+        "scripts/new_video.py scaffolds a render.py identical to the live one"
+      ],
+      "priority": 13
+    },
+    {
+      "id": "skill-factory-video",
+      "title": "factory-video skill: the house format, written down",
+      "status": "passing",
+      "acceptance": [
+        "Covers the set/choreography split, motion language, icon and glow vocabulary, camera rules",
+        "Carries the framing rules that no test can check, with the reasons",
+        "Reference file records the motion standards' sources and Manim's real limits",
+        "AGENTS.md points at it rather than duplicating it"
+      ],
+      "priority": 14
+    },
+    {
       "id": "harness-hook-bash-false-positive",
-      "priority": 10,
+      "priority": 15,
       "title": "Protected-path hook: narrow the Bash matcher to actual writes",
       "status": "failing",
       "blocked_on": "human \u2014 the hook protects itself, so an agent cannot fix it",
@@ -132,7 +195,7 @@
     },
     {
       "id": "harness-ci",
-      "priority": 11,
+      "priority": 16,
       "title": "CI: run the Evaluator from the base branch on every pull request",
       "status": "planned",
       "blocked_on": "human \u2014 .github/workflows/ is a protected path",

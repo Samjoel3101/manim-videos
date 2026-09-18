@@ -10,6 +10,8 @@ videos/<slug>/scenes/   narrative: what happens, in what order, with what words
         ▼
 lib/components/         vocabulary: what things look like
 lib/camera.py           grammar: how the camera moves between them
+lib/motion.py           prosody: easing and duration
+lib/effects.py          emphasis: glow, trails, anticipation
         │ imports
         ▼
 lib/theme.py            identity: colour, type, spacing, timing
@@ -37,6 +39,19 @@ they have already stood inside every part of it.
 
 Concatenation is still supported (`render.py` handles multiple scenes) and is
 right for a video that genuinely has chapters. It is not the default.
+
+## Why motion is a module, not a per-scene decision
+
+`theme.py` makes the series look like one series; `motion.py` makes it *move*
+like one. Both exist for the same reason: a back catalogue only coheres if these
+choices are made once. A scene that passes Manim's default easing is not neutral
+— it is opting out of the house look.
+
+The curves are real cubic-Béziers rather than approximations of Manim's named
+rate functions, so they match the published Material values exactly. See
+`.claude/skills/factory-video/reference/motion-standards.md` for the sources and
+for what Manim genuinely cannot do (no gaussian blur, no motion blur — the first
+is faked with layered strokes, the second is an ffmpeg pass in `render.py`).
 
 ## Why theme.py is a single module
 

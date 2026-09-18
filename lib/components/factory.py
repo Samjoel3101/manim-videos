@@ -37,6 +37,9 @@ class Station(VGroup):
     ----------
     title:
         Shown inside the bay, sized for the zoomed-in view.
+    icon:
+        Optional vendored icon name (see ``lib.components.glyph``), drawn beside
+        the title. Strongly preferred over a bare labelled box.
     marquee:
         Optional large label *below* the bay, invisible until
         :meth:`reveal_marquee`. It exists so the final pulled-back shot stays
@@ -54,6 +57,7 @@ class Station(VGroup):
         width: float = 6.6,
         height: float = 5.4,
         accent=None,
+        icon: str | None = None,
         marquee: str | None = None,
         marquee_scale: float = 2.6,
         **kwargs,
@@ -73,16 +77,32 @@ class Station(VGroup):
 
         self.title_mob = utils._text(title, theme.SIZE_LABEL, theme.FG, theme.FONT_BODY)
         utils.fit_text(self.title_mob, width - 2 * theme.PAD_MD)
-        self.title_mob.next_to(self.bay.get_top(), DOWN, buff=theme.PAD_MD)
 
-        self.add(self.bay, self.title_mob)
+        # An icon beside the title says what the station *is* before the viewer
+        # has read the word. The pair is centred as one header row.
+        self.icon = None
+        if icon:
+            from lib.components.glyph import Glyph
+
+            self.icon = Glyph(
+                icon, color=self.accent, height=self.title_mob.height * 1.7
+            )
+            header = VGroup(self.icon, self.title_mob).arrange(
+                RIGHT, buff=theme.PAD_SM
+            )
+        else:
+            header = VGroup(self.title_mob)
+        self.header = header
+        header.next_to(self.bay.get_top(), DOWN, buff=theme.PAD_MD)
+
+        self.add(self.bay, header)
 
         self.subtitle_mob = None
         if subtitle:
             self.subtitle_mob = utils._text(
                 subtitle, theme.SIZE_MICRO, theme.FG_MUTED, theme.FONT_MONO
             )
-            self.subtitle_mob.next_to(self.title_mob, DOWN, buff=theme.PAD_XS)
+            self.subtitle_mob.next_to(self.header, DOWN, buff=theme.PAD_XS)
             self.add(self.subtitle_mob)
 
         self.content = VGroup()
@@ -110,7 +130,7 @@ class Station(VGroup):
         )
 
     def _slot_top(self) -> float:
-        anchor = self.subtitle_mob or self.title_mob
+        anchor = self.subtitle_mob or self.header
         return anchor.get_bottom()[1] - theme.PAD_SM
 
     @property

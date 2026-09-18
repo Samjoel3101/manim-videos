@@ -24,8 +24,11 @@ local.
 
 - Subclass `VGroup`. Build children in `__init__` and expose them as named
   attributes (`self.box`, `self.rows`) so scenes can animate the parts.
-- Everything visual comes from `lib/theme.py`. No hex strings, no raw font sizes,
-  no bare `run_time` numbers.
+- Everything visual comes from `lib/theme.py`; everything that moves gets its
+  curve from `lib/motion.py`. No hex strings, no raw font sizes, no `self.play`
+  without a `rate_func`.
+- A node the viewer should recognise gets an icon (`lib.components.glyph`), not a
+  labelled rectangle. "Running" is a glow (`lib.effects`), not a thicker border.
 - Parametrize what a second video would want to vary: colour, size, counts,
   labels. Give defaults so the common case stays one line.
 - Methods that change state (`highlight`, `activate`, `select`) return `self` so

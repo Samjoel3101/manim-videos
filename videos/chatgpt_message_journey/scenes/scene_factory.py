@@ -19,6 +19,7 @@ import numpy as np
 from manim import (
     DOWN,
     RIGHT,
+    UP,
     AnimationGroup,
     Dot,
     FadeIn,
@@ -29,7 +30,7 @@ from manim import (
     VGroup,
 )
 
-from lib import camera, theme, utils
+from lib import camera, effects, motion, theme, utils
 from lib.components.chat_ui import StreamingBubble
 from lib.components.factory import Conveyor
 from lib.components.probability import ProbabilityChart
@@ -55,6 +56,11 @@ W_TIGHT = 12.0
 W_CHAT = 12.0
 W_MEDIUM = 17.0
 W_WIDE = 26.0
+
+
+def s_glow(scene, station):
+    """Shorthand for the pre-built halo belonging to a station."""
+    return scene.set.glow_for(station)
 
 
 class TheFactory(MovingCameraScene):
@@ -88,6 +94,7 @@ class TheFactory(MovingCameraScene):
             ghost.animate.move_to(bubble).set_opacity(0),
             bubble.animate.set_opacity(1),
             run_time=0.5,
+            rate_func=motion.ENTER,
         )
         self.remove(ghost)
         chat.input.clear()
@@ -95,7 +102,7 @@ class TheFactory(MovingCameraScene):
         # The message becomes a physical thing the moment it is sent.
         self.packet = Dot(radius=0.13, color=theme.USER)
         self.packet.move_to(bubble.get_right())
-        self.play(FadeIn(self.packet, scale=0.4), run_time=0.3)
+        self.play(FadeIn(self.packet, scale=0.4), run_time=0.3, rate_func=motion.ENTER)
 
     # ============================================ 3.0 → 6.2  out over the wire
     def beat_leave_the_device(self) -> None:
@@ -104,22 +111,29 @@ class TheFactory(MovingCameraScene):
         # Camera and packet move together — the shot never stops to wait.
         self.play(
             self.packet.animate.move_to(s.rail_chat_to_server.end),
-            camera.focus(self, s.server, width=W_MEDIUM, run_time=1.3),
+            camera.focus(self, s.server.tile, width=W_MEDIUM, run_time=1.3),
             run_time=1.3,
+            rate_func=motion.MOVE,
         )
         self.play(
-            s.server.box.animate.set_stroke(theme.NETWORK, width=theme.STROKE_THICK),
-            self.packet.animate.move_to(s.server.get_center()),
+            s.glow_for(s.server).animate.set_opacity(1.0),
+            self.packet.animate.move_to(s.server.tile.get_center()),
             run_time=0.5,
+            rate_func=motion.SNAP,
         )
         self.play(
             self.packet.animate.move_to(s.rail_server_to_llm.end),
             camera.focus(self, s.llm, width=W_WIDE + 12, run_time=0.9),
-            s.server.box.animate.set_stroke(theme.NETWORK, width=theme.STROKE_NORMAL),
+            s.glow_for(s.server).animate.set_opacity(0.3),
             run_time=0.9,
+            rate_func=motion.MOVE,
         )
         # Dive into the machine.
-        self.play(camera.focus(self, s.tokenizer.bay, width=W_TIGHT, run_time=0.5), run_time=0.5)
+        self.play(
+            camera.focus(self, s.tokenizer.bay, width=W_TIGHT, run_time=0.5),
+            run_time=0.5,
+            rate_func=motion.FEATURE,
+        )
 
     # ============================================== 6.2 → 10.0  tokenization
     def beat_tokenize(self):
@@ -127,19 +141,22 @@ class TheFactory(MovingCameraScene):
         strip = TokenStrip(QUESTION, per_line=3, show_ids=True)
         station.fit(strip)
 
-        self.play(station.animate.activate(), run_time=0.25)
+        self.play(
+            s_glow(self, station).animate.set_opacity(1.0),
+            run_time=0.25,
+            rate_func=motion.ENTER,
+        )
         self.packet.move_to(station.slot_center)
         self.play(
             FadeOut(self.packet, scale=2.0),
-            AnimationGroup(
-                *[FadeIn(chip, scale=0.7) for chip in strip.chips], lag_ratio=0.18
-            ),
+            motion.enter(strip.chips, scale=0.7),
             run_time=1.5,
+            rate_func=motion.ENTER,
         )
         self.add(strip)
 
         note = self._note(station, "words → pieces the model knows")
-        self.play(FadeIn(note), run_time=0.35)
+        self.play(FadeIn(note, shift=UP * theme.PAD_XS), run_time=0.35, rate_func=motion.ENTER)
         self.play(
             AnimationGroup(
                 *[chip.animate.highlight(theme.EMBED) for chip in strip.chips],
@@ -147,7 +164,12 @@ class TheFactory(MovingCameraScene):
             ),
             run_time=0.9,
         )
-        self.play(FadeOut(note), station.animate.deactivate(), run_time=0.3)
+        self.play(
+            FadeOut(note),
+            s_glow(self, station).animate.set_opacity(0.3),
+            run_time=0.3,
+            rate_func=motion.EXIT,
+        )
         return strip
 
     # ================================================= 10.0 → 13.6  embedding
@@ -167,8 +189,9 @@ class TheFactory(MovingCameraScene):
 
         self.play(
             camera.focus(self, station.bay, width=W_TIGHT, run_time=0.7),
-            station.animate.activate(),
+            s_glow(self, station).animate.set_opacity(1.0),
             run_time=0.7,
+            rate_func=motion.MOVE,
         )
         # Each chip flies over and becomes its vector — the same payload, changed.
         self.play(
@@ -183,13 +206,19 @@ class TheFactory(MovingCameraScene):
                 lag_ratio=0.16,
             ),
             run_time=1.8,
+            rate_func=motion.MOVE,
         )
         self.remove(strip)
         self.add(columns)
 
         note = self._note(station, "every token becomes a direction in meaning-space")
-        self.play(FadeIn(note), run_time=0.3)
-        self.play(FadeOut(note), station.animate.deactivate(), run_time=0.4)
+        self.play(FadeIn(note, shift=UP * theme.PAD_XS), run_time=0.3, rate_func=motion.ENTER)
+        self.play(
+            FadeOut(note),
+            s_glow(self, station).animate.set_opacity(0.3),
+            run_time=0.4,
+            rate_func=motion.EXIT,
+        )
         return columns
 
     # ============================================== 13.6 → 17.8  the stack
@@ -206,22 +235,31 @@ class TheFactory(MovingCameraScene):
 
         self.play(
             camera.focus(self, station.bay, width=W_TIGHT, run_time=0.7),
-            station.animate.activate(),
+            s_glow(self, station).animate.set_opacity(1.0),
             columns.animate.move_to(station.slot_center).set_opacity(0.0),
             FadeIn(stack),
             run_time=0.9,
+            rate_func=motion.MOVE,
         )
         self.remove(columns)
 
         # Activation climbs the stack; the elided middle keeps 96 layers honest.
+        # Stroke-based, not glow: twelve halo layers per block, four blocks, at
+        # 0.17s each is a lot of render for a beat the viewer reads as a pulse.
         for block in stack.blocks:
-            self.play(block.animate.activate(), run_time=0.17)
-            self.play(block.animate.deactivate(), run_time=0.17)
+            self.play(block.animate.activate(), run_time=0.17, rate_func=motion.SNAP)
+            self.play(block.animate.deactivate(), run_time=0.17, rate_func=motion.EXIT)
 
         note = self._note(station, "each layer lets every token look at the others")
-        self.play(FadeIn(note), run_time=0.3)
-        self.play(out.animate.set_opacity(1.0), run_time=0.5)
-        self.play(FadeOut(note), FadeOut(stack), station.animate.deactivate(), run_time=0.4)
+        self.play(FadeIn(note, shift=UP * theme.PAD_XS), run_time=0.3, rate_func=motion.ENTER)
+        self.play(out.animate.set_opacity(1.0), run_time=0.5, rate_func=motion.ENTER)
+        self.play(
+            FadeOut(note),
+            FadeOut(stack),
+            s_glow(self, station).animate.set_opacity(0.3),
+            run_time=0.4,
+            rate_func=motion.EXIT,
+        )
         return out
 
     # ================================================ 17.8 → 21.2  sampling
@@ -236,16 +274,17 @@ class TheFactory(MovingCameraScene):
 
         self.play(
             camera.focus(self, station.bay, width=W_TIGHT, run_time=0.7),
-            station.animate.activate(),
+            s_glow(self, station).animate.set_opacity(1.0),
             vector.animate.move_to(station.slot_center).set_opacity(0.0),
             FadeIn(chart),
             run_time=0.9,
+            rate_func=motion.MOVE,
         )
         self.remove(vector)
 
         note = self._note(station, "a score for every word it knows")
-        self.play(FadeIn(note), run_time=0.3)
-        self.play(chart.animate.select(" It"), run_time=0.6)
+        self.play(FadeIn(note, shift=UP * theme.PAD_XS), run_time=0.3, rate_func=motion.ENTER)
+        self.play(chart.animate.select(" It"), run_time=0.6, rate_func=motion.FEATURE)
 
         winner = TokenStrip([" It"])
         station.fit(winner)
@@ -255,9 +294,14 @@ class TheFactory(MovingCameraScene):
             FadeOut(note),
             FadeIn(winner, scale=0.6),
             run_time=0.6,
+            rate_func=motion.FEATURE,
         )
         self.play(Flash(winner, color=theme.ASSISTANT, line_length=0.2), run_time=0.3)
-        self.play(station.animate.deactivate(), run_time=0.2)
+        self.play(
+            s_glow(self, station).animate.set_opacity(0.3),
+            run_time=0.2,
+            rate_func=motion.EXIT,
+        )
         return winner
 
     # =========================================== 21.2 → 24.6  back to the user
@@ -275,22 +319,32 @@ class TheFactory(MovingCameraScene):
         self.add(self.answer)
 
         courier = Dot(radius=0.13, color=theme.ASSISTANT).move_to(token.get_center())
-        self.play(FadeOut(token, scale=1.6), FadeIn(courier, scale=0.5), run_time=0.35)
+        self.play(
+            FadeOut(token, scale=1.6),
+            FadeIn(courier, scale=0.5),
+            run_time=0.35,
+            rate_func=motion.SNAP,
+        )
 
+        trail = effects.comet(courier, color=theme.ASSISTANT, dissipating_time=0.22)
+        self.add(trail)
         self.play(
             MoveAlongPath(courier, s.return_rail.path, run_time=1.9),
             camera.focus(self, s.return_rail, width=W_WIDE + 18, run_time=1.9),
             s.return_label.animate.set_opacity(1.0),
             run_time=1.9,
+            rate_func=motion.MOVE,
         )
+        self.remove(trail)
         self.play(
             camera.focus(self, s.chat, width=W_CHAT, run_time=0.75),
             FadeOut(courier, scale=0.3),
             self.answer.body.animate.set_opacity(1.0),
             run_time=0.75,
+            rate_func=motion.ENTER,
         )
         # Three words, not one: a bubble sized for eleven looks broken holding one.
-        self.play(self.answer.animate.reveal(3), run_time=0.4)
+        self.play(self.answer.animate.reveal(3), run_time=0.4, rate_func=motion.ENTER)
 
     # ============================================= 24.6 → 30.0  the whole plant
     def beat_pull_back(self) -> None:
@@ -301,17 +355,24 @@ class TheFactory(MovingCameraScene):
             camera.frame_all(self, [s.everything], pad=1.0, run_time=1.4),
             *s.reveal_marquees(),
             run_time=1.4,
+            rate_func=motion.FEATURE,
         )
 
         # Three more tokens run the entire circuit. Same machine, seen whole.
         words_per_pass = max(1, (self.answer.word_count - 3) // 3)
         for i in range(3):
             runner = Dot(radius=0.34, color=theme.TOKEN)
+            # Short dissipation: at this speed a long tail stops reading as a
+            # comet and starts reading as a line drawn through the machines.
+            spark = effects.comet(runner, color=theme.TOKEN, width=9,
+                                  dissipating_time=0.14)
+            self.add(spark, runner)
             self.play(
                 MoveAlongPath(runner, loop.path, run_time=1.15),
                 run_time=1.15,
+                rate_func=motion.MOVE,
             )
-            self.remove(runner)
+            self.remove(runner, spark)
             self.play(
                 self.answer.animate.reveal(3 + (i + 1) * words_per_pass),
                 run_time=0.15,

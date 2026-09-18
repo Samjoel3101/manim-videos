@@ -102,3 +102,68 @@ STILL BLOCKED ON A HUMAN (unchanged from session 1)
    commands that name a protected path. Fix is written up as
    `harness-hook-bash-false-positive` in feature_list.json.
 2. Still no CI, for the same self-protection reason. `harness-ci`.
+
+----------------------------------------------------------------------
+SESSION 3 — the look becomes the standard. Motion language + icons + a skill.
+
+WHY
+Review feedback: the continuous shot works, but the components were plain boxes
+and the motion lacked the polish of ByteByteGo-style explainers. Researched what
+they use (After Effects — so a hand-keyframed pipeline, not a rival code tool)
+and probed what Manim can actually do before promising anything.
+
+WHAT THE PROBE ESTABLISHED (kept because it stops the question being re-asked)
+- Vector icons: yes. SVGMobject imports Lucide cleanly.
+- Glow: no native blur, but concentric stroked copies look right.
+- Gradients, 55 easing curves, TracedPath comet trails: all present in 0.21.
+- Motion blur: not in Manim; an ffmpeg tmix frame-blend pass costs about the
+  clip's own duration and is now wired into the render profiles.
+- True gaussian blur / soft drop shadow behind a filled card: still not possible
+  without post-processing. This is the one real gap.
+- Benchmarked at 1080p60: a 12-layer stroke glow renders in ~1.4s per
+  animation-second; an equivalent pre-blurred ImageMobject sprite takes ~5.6s.
+  This is the OPPOSITE of what I assumed going in — Cairo's alpha compositing is
+  the bottleneck, not path count, and layer count barely matters. Layered strokes
+  are both the better-looking and the cheaper option.
+
+BUILT
+- lib/motion.py — the motion language. Real cubic-Beziers of the Material curves
+  (not approximations of Manim's named rate functions), semantic aliases
+  ENTER/EXIT/MOVE/SNAP/FEATURE, duration tokens, sub-linear distance scaling,
+  staggered entrance helper.
+- lib/effects.py — glow, Glowing, comet, pulse.
+- lib/components/glyph.py + lib/assets/icons/ — 24 vendored Lucide icons (ISC),
+  Glyph and IconTile.
+- Station gained an icon slot; the factory set now uses icons and pre-built glow
+  halos, and every play() in the scene carries a named easing curve.
+- Motion blur wired into harness.json + render.py, and scripts/new_video.py now
+  scaffolds a render.py byte-identical to the live one (verified by diff).
+- .claude/skills/factory-video/ — the house format written down, with a
+  reference file recording the motion standards' sources and Manim's real limits.
+- 54 more tests (143 total) and 4 more baselines (19 total).
+
+WHAT WENT WRONG
+- Syncing render.py into the scaffold template needed brace escaping AND
+  backslash escaping, in that order. Got it wrong twice; the fix is verified by
+  diffing a freshly scaffolded render.py against the live one, which is now the
+  standing check.
+- A glow test asserted the halo's bounding box exceeds its source. It does not:
+  Manim's .width is path geometry and ignores stroke entirely, so the halo shares
+  the source's box and the light spills out through stroke width alone. The test
+  was wrong, not the code.
+- The end-loop comet had a 0.5s dissipation, which at that speed drew a hard
+  orange line straight through the machines instead of a trail. 0.14s reads as a
+  comet. Found by looking at frames, as usual.
+- Lucide draws indicator dots as zero-length lines with round caps, which Manim
+  renders as nothing — the server icon silently lost both status lights. Glyph
+  now detects degenerate sub-paths and substitutes real dots. There is a test.
+
+STILL BLOCKED ON A HUMAN (unchanged)
+1. harness-hook-bash-false-positive — the protected-path hook still blocks any
+   Bash command that mentions a protected path alongside a redirect, and it
+   protects itself so no agent session can fix it. Cost time again this session.
+2. harness-ci — no CI, same self-protection reason.
+
+NEXT
+- voiceover-pass on the video (locks pacing against narration).
+- attention-detail beat, if the video is allowed to grow.

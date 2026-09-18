@@ -15,8 +15,10 @@ from typing import Callable
 import numpy as np
 from manim import Mobject, VGroup
 
+from lib import effects, theme
 from lib.components.chat_ui import ChatWindow, StreamingBubble, TypingIndicator
 from lib.components.factory import Conveyor, PipelineBox, Station
+from lib.components.glyph import Glyph, IconTile
 from lib.components.network import RequestPath, ServerRack
 from lib.components.probability import ProbabilityChart
 from lib.components.tokens import TokenStrip
@@ -50,6 +52,45 @@ def _probability_chart() -> Mobject:
         logits=True,
         title="next token",
     )
+
+
+def _glyph_row():
+    """A spread of icons. Guards the SVG import and the indicator-dot repair —
+    `server` and `cpu` both carry degenerate paths Manim would otherwise drop."""
+    from manim import RIGHT, VGroup
+
+    names = ("server", "cpu", "database", "message-square", "zap", "layers")
+    return VGroup(
+        *[Glyph(n, color=theme.series_color(i), height=1.2) for i, n in enumerate(names)]
+    ).arrange(RIGHT, buff=0.6)
+
+
+def _icon_tile():
+    from manim import RIGHT, VGroup
+
+    return VGroup(
+        IconTile("message-square", label="client", color=theme.USER),
+        IconTile("server", label="web server", color=theme.NETWORK),
+        IconTile("cpu", label="model", color=theme.ATTENTION),
+    ).arrange(RIGHT, buff=0.9)
+
+
+def _glow():
+    """Glow on, beside the same shape with it off — the house 'this is live' cue."""
+    from manim import RIGHT, VGroup
+
+    lit_core = IconTile("zap", color=theme.TOKEN, size=2.4)
+    lit = VGroup(effects.glow(lit_core.tile, theme.TOKEN), lit_core)
+    dark = IconTile("zap", color=theme.TOKEN, size=2.4)
+    return VGroup(dark, lit).arrange(RIGHT, buff=1.4)
+
+
+def _station_with_icon():
+    station = Station(
+        "Tokenizer", subtitle="text → ids", icon="binary", accent=theme.TOKEN
+    )
+    station.load(TokenStrip("How does ChatGPT work?", per_line=3, show_ids=True))
+    return station
 
 
 def _station():
@@ -109,4 +150,8 @@ CASES: dict[str, Callable[[], Mobject]] = {
     "pipeline_box": _pipeline_box,
     "conveyor": _conveyor,
     "streaming_bubble": _streaming_bubble,
+    "glyph_row": _glyph_row,
+    "icon_tile": _icon_tile,
+    "glow": _glow,
+    "station_with_icon": _station_with_icon,
 }
