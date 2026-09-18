@@ -1,0 +1,131 @@
+# Progress log — What happens when you hit send
+
+Newest entry last. One entry per session: what you did, what you tried that did
+not work, and what the next session should pick up.
+
+--------------------------------------------------------------------
+SETUP — project scaffolded by scripts/new_video.py. No scenes yet.
+
+====================================================================
+SESSION 8 — the whole video, in one pass
+====================================================================
+
+Built videos/chatgpt_request_lifecycle from nothing: a 45-second continuous
+shot through the full request lifecycle, in the same house format as
+chatgpt_message_journey. That film showed the model; this one shows the plant
+the model sits inside. videos/chatgpt_message_journey/ was NOT touched — it is
+a reviewed, shipped deliverable and rewriting it into a nine-station film would
+have destroyed it. The two share the /lib vocabulary, the palette and the four
+in-box station accents on purpose, so the new one reads as the same world seen
+wider.
+
+WHAT IS HERE
+- scenes/lifecycle_set.py   the set: four bands, ten stations, one closed loop
+- scenes/scene_lifecycle.py the choreography: eleven beats, each with its
+                            timecode in a comment above the method
+- scenes/props.py           RequestCard, StampChip, BatchLanes — one call site
+                            each, so they stay local under AGENTS rule 2
+- script.md, scenes.json, feature_list.json, AGENTS.md (visual conventions
+  filled in: the four bands, the accent table, the shot widths, and the rule
+  about colour repeats)
+
+MEASURED, NOT ASSUMED
+The plan's figures were checked against a constructed set rather than trusted:
+
+  world extent      55.89 x 29.70
+  wide_frame_width  57.89  (SHOT_WIDE = 58.0, drift 0.19%)
+  pull-back         4.07x
+  circuit length    128.45   way home 52.79
+
+Every bay centre and extent came out exactly where the plan's table said, and
+the box edges are DERIVED from llm.frame rather than hardcoded — validate()
+asserts them rather than the other way round.
+
+THE SIX ASSERTIONS IN validate()
+1. the climb home clears every bay, the chat, the bot check and the box frame
+2. and so do the CHORDS a comet draws along it, budgeted at
+   LOOP_FPS * LOOP_RUN_TIME * (home_len / circuit_len) frames — which is why
+   LOOP_RUN_TIME lives in the set and the scene imports it
+3. the fan-out spur, same obstacle set
+4. band separation, as four separately-worded checks: top band above the box,
+   box above the stream bay, after bay clear of the bottom band, RETURN_X clear
+   of both the chat and the after bay
+5. the zoom budget against SHOT_WIDE, with an error that says to fix the layout
+   rather than widen the constant
+6. typography.audit over every wide-shot label. The two ROTATED labels (the box
+   title and the return label) are audited through an unrotated copy: measure()
+   compares a bounding-box height against frame height, and for a label turned
+   on its side that height is the LENGTH of the words, so it would pass
+   trivially and tell us nothing.
+
+WHAT THE FRAMES CAUGHT (none of it visible to the Evaluator)
+Seven real bugs, all found by rendering at the draft profile and reading the
+contact sheet and full-size stills. This is the whole argument for the review
+loop:
+
+1. THE REPLY WAS LEGIBLE TEN SECONDS EARLY. ChatWindow.post -> commit ->
+   _scroll_into_view -> _hide_scrolled_off calls set_opacity(1.0) on every
+   message still in view, which undoes the hidden state a StreamingBubble is
+   built in. So the finished sentence was readable from the moment the bubble
+   was posted, and every later reveal(n) was a no-op. Fixed with an explicit
+   reveal(0) after post. The reference film has the same latent problem.
+2. THE QUESTION DISAPPEARED WHEN THE ANSWER LANDED. At CHAT_H=6.4 the window's
+   message area is 3.29 units and the two bubbles need 3.47, so the transcript
+   scrolled and hid the question — exactly as ChatWindow is documented to do.
+   CHAT_H is 7.0 now. Measured, not guessed.
+3. A BLACK FRAME MID-SHOT. The swing from the chat down to the after bay is 25
+   units of empty world, and at W_SERVICE the camera spent about half a second
+   looking at nothing. W_AFTER=20 with the frame pushed 2.0 left keeps the
+   return rail in shot for the whole move.
+4. THE CHAT WAS SLICED BY THE FRAME EDGE during the long travel shot, because
+   the camera was framed against the return rail alone and the rail tops out 3.2
+   units below the window. Framed against VGroup(rail, chat) now, at W=45.
+5. THE DECODE CAPTION AND ITS METER LANDED ON TOP OF EACH OTHER. Both were
+   placed under the bay independently and the 0.6-unit gap only fits one. They
+   are one arranged row now, which is also why the caption is shorter.
+6. THE TOKENIZER SHOWED TWO THINGS AT ONCE. The chat template's fade-out and the
+   chips' entrance shared a 1.2s play and the same slot, so the middle of the
+   beat was mono text showing through a row of chips. Two plays now.
+7. THE PREFILL BEAT NAMED THE WRONG THING. SegmentedBar drops an inline label
+   below 12% of the bar and "new tail" is 5%, so the emphasised amber sliver had
+   nothing anywhere saying what it was. The caption names it now.
+
+DELIBERATE DEPARTURES FROM THE PLAN (with reasons)
+- The packet stops at a band station's DOOR, not at slot_center. The slot is
+  where the CheckList and the meters go; a dot on top of a tick list reads as a
+  rendering mistake. Stopping it on the incoming rail says "the request is at
+  the Edge tier" just as clearly.
+- The decode beat's TransformerStack is shown=2, not shown=3. This bay is 2.1
+  tall where the reference film's was 2.4, and three blocks get fit-scaled to
+  ~0.75, which puts the layer captions under typography.MIN_READABLE.
+- The token strip is per_line=4, not 3, for the same reason: three rows is 2.3
+  tall against a 1.6 slot.
+- The decode meter sits UNDER the bay rather than in the slot, beside the
+  caption. The slot is 4.6 x 1.6 and the stack and the lanes already have it.
+- BatchLanes labels only the highlighted row. The plan floated "…" on the muted
+  rows; at this size that is four more pieces of noise and the colour already
+  says which row to follow.
+
+KNOWN-WEAK, NOT HIDDEN
+- lib/components/probability.py predates lib/typography.py and still sizes its
+  text in absolute theme points, so an unscaled ProbabilityBar's value text
+  lands just under MIN_READABLE at this film's shot widths. TheLifecycle._meter
+  compensates by scaling the whole widget. That is a workaround; the real fix is
+  a frame_width argument, which moves the probability_chart baseline and so
+  deserves its own session. Tracked as `probability-typography`.
+- ProbabilityBar.set_value replaces value_mob, so the submobject list changes.
+  It was probed on a throwaway scene before being relied on: .animate.set_value
+  DOES interpolate cleanly (Manim aligns the two glyph trees), and the number
+  morphs rather than ticking. Over 0.9s that reads as a meter filling. The
+  fallback path — animating bar.bar.stretch_to_fit_width and swapping the text
+  separately — was not needed.
+- At 15 fps the comet leaves a visible corner-cutting chord where the reply
+  turns out of the box. It is in open space, crosses nothing, and is four times
+  shorter at the 60 fps final profile. Not worth slowing the move for.
+- IconTile's caption ("bot check") is sized in absolute points by /lib, so it is
+  small at the pull-back. It names a minor node and the tile's icon carries the
+  meaning; left alone rather than special-cased.
+
+NEXT SESSION
+The highest-priority incomplete item is `voiceover-pass`, then
+`probability-typography`.

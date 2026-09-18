@@ -16,6 +16,7 @@ from lib.components.chat_ui import (
     StreamingBubble,
     TypingIndicator,
 )
+from lib.components.checks import CheckList, CheckRow
 from lib.components.factory import Conveyor, PipelineBox, Station, rail_between
 from lib.components.network import (
     DeviceNode,
@@ -26,6 +27,7 @@ from lib.components.network import (
     ServerRack,
 )
 from lib.components.probability import ProbabilityBar, ProbabilityChart, softmax
+from lib.components.stacked import INLINE_MIN_FRACTION, SegmentedBar
 from lib.components.tokens import (
     TokenChip,
     TokenStrip,
@@ -621,3 +623,241 @@ def test_station_header_leaves_the_slot_most_of_a_wide_bay():
     slot_width, _ = station.slot_size
     assert station.header.width <= 9.6 * 0.4
     assert slot_width > station.header.width
+
+
+# ----------------------------------------------------------------- checks
+def test_check_rows_share_all_three_column_edges():
+    """The ragged-row bug again, in a new component.
+
+    Rows laid out around their own label put every marker wherever that row's
+    word happened to start. The columns are reserved instead, so a list of
+    "WAF" and "rate limit" lines up. Invisible to the snapshot gate — a 16x16
+    luminance signature cannot see a marker move a third of a unit — so it is
+    asserted here or not at all.
+    """
+    checks = CheckList(
+        ["WAF", ("bot score", "0.02"), ("rate limit", "12 / 60")], width=3.4
+    )
+    markers = [row.marker.get_left()[0] for row in checks.rows]
+    labels = [row.label_mob.get_left()[0] for row in checks.rows]
+    assert markers == pytest.approx([markers[0]] * len(markers), abs=1e-6)
+    assert labels == pytest.approx([labels[0]] * len(labels), abs=1e-6)
+
+
+def test_check_row_detail_column_is_right_aligned():
+    """Details of different lengths must end on the same edge, not start on one."""
+    checks = CheckList([("a", "0.02"), ("bbbbbb", "12 / 60")], width=3.4)
+    rights = [row.detail_mob.get_right()[0] for row in checks.rows]
+    assert rights == pytest.approx([rights[0]] * len(rights), abs=1e-6)
+    # And the reserved column is what fixes it, so the edge is at `width`.
+    assert rights[0] == pytest.approx(checks[0].get_left()[0] + 3.4, abs=1e-6)
+
+
+def test_a_pending_tick_is_invisible_on_stroke_not_on_fill():
+    """The tick is two Lines. It has no fill, and must never be given one.
+
+    A blanket `set_opacity` would raise fill opacity as well and draw the tick
+    as a pair of filled slivers — the same fill-vs-stroke trap as the glow
+    halos (session 5) and the Lucide icons (session 6).
+    """
+    row = CheckRow("WAF")
+    assert row.state == "pending"
+    for line in row.tick:
+        assert line.get_stroke_opacity() == pytest.approx(0.0)
+        assert line.get_fill_opacity() == pytest.approx(0.0)
+
+
+def test_mark_pass_lights_the_tick_without_touching_the_submobject_list():
+    """`row.animate.mark_pass()` only interpolates if the tree stays the same."""
+    row = CheckRow("bot score", detail="0.02")
+    before = len(row.submobjects)
+    row.mark_pass()
+    assert row.state == "passed"
+    assert all(line.get_stroke_opacity() == pytest.approx(1.0) for line in row.tick)
+    assert all(line.get_fill_opacity() == pytest.approx(0.0) for line in row.tick)
+    assert len(row.submobjects) == before
+
+
+def test_a_passed_row_takes_its_accent_from_the_theme():
+    default = CheckRow("WAF").mark_pass()
+    assert default.marker.get_fill_color().to_hex() == theme.ASSISTANT.to_hex()
+    warned = CheckRow("quota", color=theme.WARN).mark_pass()
+    assert warned.marker.get_fill_color().to_hex() == theme.WARN.to_hex()
+
+
+def test_mark_fail_uses_the_error_colour_and_the_cross_not_the_tick():
+    """A red tick would read as "passed, but bad". A failure needs its own mark."""
+    row = CheckRow("rate limit").mark_fail()
+    assert row.state == "failed"
+    assert row.marker.get_fill_color().to_hex() == theme.ERROR.to_hex()
+    assert all(line.get_stroke_opacity() == pytest.approx(1.0) for line in row.cross)
+    assert all(line.get_stroke_opacity() == pytest.approx(0.0) for line in row.tick)
+
+
+def test_check_row_reset_round_trips():
+    row = CheckRow("session")
+    row.mark_pass().reset()
+    assert row.state == "pending"
+    assert all(line.get_stroke_opacity() == pytest.approx(0.0) for line in row.tick)
+    assert row.marker.get_stroke_color().to_hex() == theme.FG_FAINT.to_hex()
+
+
+def test_check_list_addresses_rows_by_label_and_by_index():
+    checks = CheckList(["session", ("plan", "pro")])
+    assert len(checks) == 2
+    assert checks.row_for("plan") is checks[1]
+    assert checks.row_for("nope") is None
+
+
+def test_check_list_pass_all_yields_one_builder_per_row():
+    checks = CheckList(["a", "b", "c"])
+    anims = checks.pass_all()
+    assert len(anims) == 3
+    # Returned, not played: the choreography owns the lag and the easing.
+    assert all(hasattr(a, "build") for a in anims)
+
+
+def test_check_list_rejects_an_empty_list():
+    with pytest.raises(ValueError):
+        CheckList([])
+
+
+# ---------------------------------------------------------------- stacked
+def test_segmented_bar_drawn_widths_fill_the_bar():
+    bar = SegmentedBar({"a": 3, "b": 1}, length=5.0, labels="none")
+    assert sum(seg.width for seg in bar.segments) == pytest.approx(5.0, abs=1e-6)
+
+
+def test_a_sliver_is_clamped_to_min_segment_so_the_beat_can_happen():
+    """7 tokens in 3,937 is 0.18% of the bar: sub-pixel, i.e. the beat fails.
+
+    The clamp is the component's reason to exist, so it is asserted rather than
+    trusted.
+    """
+    bar = SegmentedBar(
+        {"prompt": 3930, "yours": 7}, length=5.0, min_segment=0.05, labels="none"
+    )
+    assert bar.segments[1].width >= 0.05 * 5.0 - 1e-6
+    assert sum(seg.width for seg in bar.segments) == pytest.approx(5.0, abs=1e-6)
+
+
+def test_fractions_report_the_unclamped_truth():
+    """Legibility wins the drawing; the model keeps the real number."""
+    bar = SegmentedBar(
+        {"prompt": 3930, "yours": 7}, length=5.0, min_segment=0.05, labels="none"
+    )
+    assert bar.fractions[1] == pytest.approx(7 / 3937)
+    assert sum(bar.fractions) == pytest.approx(1.0)
+    assert bar.drawn_fractions[1] > bar.fractions[1], "the DRAWN slice is lifted"
+
+
+def test_min_segment_zero_draws_the_honest_bar():
+    bar = SegmentedBar(
+        {"prompt": 3930, "yours": 7}, length=5.0, min_segment=0.0, labels="none"
+    )
+    assert bar.drawn_fractions == pytest.approx(bar.fractions)
+
+
+def test_the_clamp_holds_when_several_segments_are_slivers():
+    """Lifting the small ones shrinks the big ones, which can push another
+    under the floor. The redistribution iterates for exactly that reason."""
+    bar = SegmentedBar(
+        {"a": 1000, "b": 2, "c": 2, "d": 2}, length=6.0, min_segment=0.1,
+        labels="none",
+    )
+    assert all(seg.width >= 0.1 * 6.0 - 1e-6 for seg in bar.segments)
+    assert sum(seg.width for seg in bar.segments) == pytest.approx(6.0, abs=1e-6)
+
+
+def test_segmented_bar_refuses_an_impossible_floor():
+    with pytest.raises(ValueError):
+        SegmentedBar({"a": 1, "b": 1, "c": 1}, min_segment=0.5)
+
+
+def test_segmented_bar_rejects_an_unknown_label_mode_and_an_empty_bar():
+    with pytest.raises(ValueError):
+        SegmentedBar({"a": 1}, labels="sideways")
+    with pytest.raises(ValueError):
+        SegmentedBar({})
+
+
+def test_legend_rows_share_a_left_edge_and_a_value_edge():
+    bar = SegmentedBar(
+        {"system prompt": 2400, "tool definitions": 1150, "your message": 7},
+        length=5.0,
+        labels="legend",
+    )
+    swatches = [row[0].get_left()[0] for row in bar.legend]
+    names = [row[1].get_left()[0] for row in bar.legend]
+    values = [row[2].get_right()[0] for row in bar.legend]
+    assert swatches == pytest.approx([swatches[0]] * 3, abs=1e-6)
+    assert names == pytest.approx([names[0]] * 3, abs=1e-6)
+    assert values == pytest.approx([values[0]] * 3, abs=1e-6)
+
+
+def test_legend_prints_the_true_value_not_the_drawn_one():
+    bar = SegmentedBar({"prompt": 3930, "yours": 7}, min_segment=0.2)
+    assert bar.legend[1][2].text == "7"
+
+
+def test_set_shown_hides_by_opacity_and_never_by_removal():
+    """The choreography grows the bar with `.animate.set_shown(k)`, which only
+    interpolates if the submobject tree is constant."""
+    bar = SegmentedBar({"a": 1, "b": 1, "c": 1}, labels="legend")
+    counts = (len(bar.submobjects), len(bar.segments), len(bar.legend))
+    bar.set_shown(1)
+    assert bar.segments[0].get_fill_opacity() == pytest.approx(1.0)
+    assert bar.segments[2].get_fill_opacity() == pytest.approx(0.0)
+    assert (len(bar.submobjects), len(bar.segments), len(bar.legend)) == counts
+    bar.set_shown(3)
+    assert bar.segments[2].get_fill_opacity() == pytest.approx(1.0)
+
+
+def test_emphasise_dims_the_others_and_leaves_hidden_segments_hidden():
+    bar = SegmentedBar({"a": 1, "b": 1, "c": 1}, labels="legend")
+    bar.set_shown(2).emphasise("a", dim_others=0.3)
+    assert bar.segments[0].get_fill_opacity() == pytest.approx(1.0)
+    assert bar.segments[1].get_fill_opacity() == pytest.approx(0.3)
+    assert bar.segments[2].get_fill_opacity() == pytest.approx(0.0), "still unrevealed"
+
+
+def test_emphasise_names_the_alternatives_when_it_cannot_find_the_segment():
+    bar = SegmentedBar({"a": 1, "b": 1})
+    with pytest.raises(KeyError):
+        bar.emphasise("c")
+
+
+def test_inline_labels_are_dropped_for_segments_too_narrow_to_hold_them():
+    """A name squeezed into 5% of the bar is a smear, not a label."""
+    bar = SegmentedBar(
+        {"cached prefix": 3900, "new tail": 37},
+        length=5.0,
+        labels="inline",
+        min_segment=0.02,
+    )
+    assert bar.drawn_fractions[1] < INLINE_MIN_FRACTION
+    assert len(bar.label_groups[0]) == 1, "the wide segment keeps its label"
+    assert len(bar.label_groups[1]) == 0, "the sliver does not"
+    # Parallel to the segments either way, so index arithmetic never branches.
+    assert len(bar.label_groups) == len(bar.segments)
+
+
+# ------------------------------------------- probability: value_format kwarg
+def test_probability_bar_value_format_is_backwards_compatible():
+    """The default must be byte-identical to the f-string it replaced, or the
+    20 approved baselines silently become wrong."""
+    assert ProbabilityBar("t", 0.5).value_mob.text == f"{0.5:.2f}"
+    assert ProbabilityBar("t", 0.5).value_format == "{:.2f}"
+
+
+def test_probability_bar_renders_the_value_in_the_given_format():
+    """A quota meter is a ProbabilityBar with a different number format — a
+    keyword argument, not a second class (AGENTS rule 1)."""
+    meter = ProbabilityBar("tokens/min", 0.62, value_format="{:.0%}")
+    assert meter.value_mob.text == "62%"
+
+
+def test_probability_bar_keeps_its_format_across_set_value():
+    meter = ProbabilityBar("batch", 0.1, value_format="{:.0%}")
+    meter.set_value(0.83)
+    assert meter.value_mob.text == "83%"

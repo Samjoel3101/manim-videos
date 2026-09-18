@@ -411,3 +411,121 @@ two of those.
 
 183 tests (7 new), 20 baselines (5 re-approved), Evaluator green on all five
 gates. assets/ refreshed.
+
+
+================================================================================
+SESSION 8 - a second video, and two components to carry it
+================================================================================
+
+Built videos/chatgpt_request_lifecycle: a 45-second continuous shot through the
+whole request lifecycle - client, bot check, edge, gateway, orchestrator, then
+the four-bay inference stack, then streaming and the after-response fan-out.
+Ten stations on four bands in one closed circuit, pulled back to 4.07x at the
+end.
+
+This is a NEW video directory, not an edit of chatgpt_message_journey. That
+film is committed in assets/ with every feature passing; rewriting it into a
+nine-station 45s cut would have destroyed a reviewed deliverable. The two share
+the /lib vocabulary, the palette, and the four in-box station accents on
+purpose, so the new one reads as the same world seen wider.
+videos/chatgpt_message_journey/ is byte-identical to where session 7 left it.
+
+WHAT LANDED IN /lib
+
+- lib/components/checks.py - CheckRow / CheckList. Rows of named checks that
+  tick from pending to passed. Four call sites in this film alone (edge,
+  gateway, stream, after), which is well past the promotion bar. Two things in
+  it are scar tissue rather than taste: the three columns are RESERVED rather
+  than measured (session 7's ragged-bar bug, in a new component), and the tick
+  is two Lines with no fill at all, so it is shown and hidden on STROKE
+  opacity. A blanket set_opacity would draw it as two filled slivers - the same
+  fill-vs-stroke trap as the glow halos in session 5 and the Lucide icons in
+  session 6. Third time. The docstring says so.
+
+- lib/components/stacked.py - SegmentedBar. A proportional bar cut into named
+  segments, with a legend or inline labels. Two load-bearing call sites: the
+  orchestrator's prompt breakdown and the KV-cache split.
+
+  min_segment is the whole reason it exists. Seven tokens out of 3,937 is 0.18%
+  of the bar: sub-pixel, so the segment does not render, so the beat - "your
+  question is the last few tokens of about four thousand" - fails silently with
+  the bar looking like it has one fewer part than the legend claims. Each
+  segment's DRAWN fraction is floored and the rest renormalised; the values stay
+  true and `fractions` reports the unclamped arithmetic. Same trade as
+  display_token's show_space, and documented as one: in a silent cut legibility
+  beats notation, and the model keeps the real number either way.
+
+- lib/components/probability.py - ONE new keyword argument, value_format. A
+  quota meter and a batch-utilisation meter are a ProbabilityBar with a
+  different number format, so that is a parameter, not a gauges.py (AGENTS rule
+  1). The default is byte-identical to the f-string it replaced; the snapshot
+  gate was run before and after and all 20 existing baselines pass untouched.
+  Also documented the real hazard on set_value: it REPLACES value_mob, so the
+  submobject list changes. It was probed on a throwaway scene before being
+  relied on - .animate.set_value does interpolate (Manim aligns the two glyph
+  trees) and the number morphs rather than ticking, which over 0.9s reads as a
+  meter filling. The documented fallback was not needed.
+
+Tests: 26 new structural tests in tests/test_components_structure.py (97 in
+that file, 212 in the suite) and 3 new snapshot cases - check_list,
+segmented_bar_legend, segmented_bar_inline - each rendered to a PNG and LOOKED
+AT before approval. 23 baselines now. The legend case was re-shot once: at
+scale 1.5 the composition was 14.6 units wide and the values were cut off the
+right-hand edge of a 14-unit frame.
+
+WHAT THE FRAME REVIEW CAUGHT THAT THE EVALUATOR COULD NOT
+
+Seven real bugs, all found by rendering at the draft profile and reading a
+contact sheet and full-size stills. Two are worth repeating here because they
+are /lib behaviour rather than this video's:
+
+1. ChatWindow.post -> commit -> _scroll_into_view -> _hide_scrolled_off calls
+   set_opacity(1.0) on every message still in view. That UNDOES the hidden
+   state a StreamingBubble is built in, so the finished reply was legible from
+   the moment it was posted - ten seconds before it was supposed to arrive -
+   and every later reveal(n) was a no-op nobody could see. The new scene calls
+   reveal(0) immediately after post. chatgpt_message_journey has the same latent
+   problem and was NOT changed: it is shipped and reviewed, and fixing it means
+   re-rendering and re-reviewing that film. Worth a session of its own.
+2. A chat window sized for one bubble silently eats the other. At CHAT_H=6.4 the
+   message area is 3.29 units and question + reply need 3.47, so the transcript
+   scrolled and hid the question at exactly the moment the answer landed. That
+   is ChatWindow behaving as documented; the fix is to size the window against
+   `message_area_height` rather than by eye, which is now measured in a comment
+   in lifecycle_set.py.
+
+The other five (a black frame mid-shot where the camera swung across 25 units of
+empty world, the chat sliced by the frame edge on the travel shot, a caption and
+a meter placed under the same bay on top of each other, a fade-out and an
+entrance sharing one slot for 1.2s, and an emphasised segment with nothing
+naming it) are in the video's own progress log.
+
+None of the seven was visible to any of the five gates. This is the argument for
+the review loop, stated again with fresh evidence.
+
+STATE
+Evaluator green on all five gates for --video chatgpt_request_lifecycle.
+212 tests, 23 baselines, 0 existing baselines re-approved.
+assets/chatgpt_request_lifecycle.mp4 committed at the final profile (1080p60,
+44.1s, 4.1MB - vector art on a flat background compresses far better than
+assets/README.md's rule of thumb assumes; the note there has been updated rather
+than the rule quietly broken).
+
+KNOWN-WEAK, RECORDED RATHER THAN HIDDEN
+lib/components/probability.py predates lib/typography.py and still sizes its
+text in absolute theme points, so at this film's shot widths an unscaled
+ProbabilityBar's value text lands just under typography.MIN_READABLE. The scene
+compensates by scaling the whole widget. That is a workaround, not a fix; the
+fix is a frame_width argument, and it moves the probability_chart baseline, so
+it is tracked as `probability-typography` in the video's feature list rather
+than smuggled into this session.
+
+STILL BLOCKED ON A HUMAN (eighth session)
+1. harness-hook-bash-false-positive. Hit again, twice: the hook blocked
+   `python scripts/approve_baselines.py --dry-run 2>&1 | head -30` purely
+   because the command names a protected path and contains a redirect. Dropping
+   the redirect worked. Nothing was routed around - the workaround is to drop
+   the pipe, and every file whose text names the Evaluator was written with the
+   Write tool.
+2. harness-ci.
+3. default branch.

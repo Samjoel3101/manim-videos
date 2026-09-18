@@ -1,0 +1,15 @@
+{
+  "title": "What happens when you hit send",
+  "slug": "chatgpt_request_lifecycle",
+  "note": "One continuous shot, so one scene. TheLifecycle is the whole film: the set is built once in lifecycle_set.py and the camera flies through it. There is deliberately nothing to concatenate \u2014 cutting between scenes is what this format is built to avoid.",
+  "scenes": [
+    {
+      "order": 1,
+      "class": "TheLifecycle",
+      "module": "scene_lifecycle.py",
+      "budget_seconds": 45,
+      "actual_seconds": 44.1,
+      "measured_at_profile": "final"
+    }
+  ]
+}

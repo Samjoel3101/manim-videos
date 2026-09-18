@@ -74,7 +74,8 @@
       "acceptance": [
         "softmax normalises and responds correctly to temperature",
         "Charts sort descending, support top_k, and can select one bar",
-        "Structural tests plus a probability_chart baseline"
+        "Structural tests plus a probability_chart baseline",
+        "ProbabilityBar takes a value_format so a quota or utilisation meter is a keyword argument, not a second class; the default is byte-identical to the f-string it replaced and all 20 pre-existing baselines still pass untouched"
       ]
     },
     {
@@ -158,6 +159,34 @@
       "priority": 12
     },
     {
+      "id": "lib-checks",
+      "title": "checks.py: CheckRow and CheckList",
+      "status": "passing",
+      "acceptance": [
+        "A row reserves three columns - marker, label, right-aligned detail - so a list of names of different lengths shares all three edges",
+        "The tick is stroke-only and is hidden and shown on stroke opacity; a blanket set_opacity would draw it as two filled slivers",
+        "mark_pass/mark_fail/reset change colour and opacity only, never the submobject list, so row.animate.mark_pass() interpolates",
+        "mark_fail draws a cross, not a red tick",
+        "Type goes through lib/typography.py with an explicit frame_width; no raw font_size, no hex strings",
+        "Structural tests plus an approved check_list snapshot baseline"
+      ],
+      "priority": 13
+    },
+    {
+      "id": "lib-stacked",
+      "title": "stacked.py: SegmentedBar",
+      "status": "passing",
+      "acceptance": [
+        "Drawn segment widths sum to the bar length; a segment's drawn fraction is floored at min_segment so a 0.18% slice is still visible",
+        "fractions reports the UNCLAMPED truth and the legend prints the real value - legibility changes the drawing, never the data",
+        "Legend rows are built against a fixed origin, so swatches, names and values each share one edge",
+        "Inline labels are omitted below INLINE_MIN_FRACTION rather than squeezed into a smear",
+        "set_shown and emphasise change opacity only, so a bar can be grown and highlighted under .animate",
+        "Structural tests plus approved segmented_bar_legend and segmented_bar_inline snapshot baselines"
+      ],
+      "priority": 14
+    },
+    {
       "id": "skill-factory-video",
       "title": "factory-video skill: the house format, written down",
       "status": "passing",
@@ -167,7 +196,7 @@
         "Reference file records the motion standards' sources and Manim's real limits",
         "AGENTS.md points at it rather than duplicating it"
       ],
-      "priority": 13
+      "priority": 15
     },
     {
       "id": "lib-typography",
@@ -180,7 +209,7 @@
         "Every role clears the readability floor; audit() reports labels that do not",
         "Station, PipelineBox and the video's labels all go through it"
       ],
-      "priority": 14
+      "priority": 16
     },
     {
       "id": "lib-routing",
@@ -193,7 +222,7 @@
         "elbow() keeps rails orthogonal",
         "The video's set calls validate() at construction, so regressions fail the render gate"
       ],
-      "priority": 15
+      "priority": 17
     },
     {
       "id": "harness-motion-blur-off",
@@ -204,11 +233,11 @@
         "The reason is recorded where the setting lives, not only in a commit message",
         "--no-blur still works for a profile that opts in"
       ],
-      "priority": 16
+      "priority": 18
     },
     {
       "id": "harness-hook-bash-false-positive",
-      "priority": 17,
+      "priority": 19,
       "title": "Protected-path hook: narrow the Bash matcher to actual writes",
       "status": "failing",
       "blocked_on": "human \u2014 the hook protects itself, so an agent cannot fix it",
@@ -221,7 +250,7 @@
     },
     {
       "id": "harness-ci",
-      "priority": 18,
+      "priority": 20,
       "title": "CI: run the Evaluator from the base branch on every pull request",
       "status": "planned",
       "blocked_on": "human \u2014 .github/workflows/ is a protected path",
