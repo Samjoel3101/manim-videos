@@ -19,6 +19,7 @@ vocabulary already exists in `/lib`.
 | `lib/transitions.py`, `lib/utils.py` | Scene transitions; text/layout helpers. |
 | `videos/<slug>/` | One self-contained video. Has its own AGENTS.md. |
 | `tests/` | Structural + visual-regression tests for `/lib`. |
+| `assets/` | The accepted cut of each video, committed. `out/` is scratch. |
 | `scripts/evaluate.py` | **The Evaluator.** Nothing is done until it exits 0. |
 | `harness.json` | Run config: render profiles, gates, protected paths. |
 | `init.sh` | Idempotent environment bootstrap. Run it every session. |
