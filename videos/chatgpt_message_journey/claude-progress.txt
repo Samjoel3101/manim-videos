@@ -81,3 +81,79 @@ NEXT
 - Highest-priority incomplete item is `voiceover-pass`.
 - If more length is wanted, `attention-detail` is the best next beat: the
   components already exist and are tested, so it is choreography only.
+
+
+================================================================================
+SESSION 7 - the ending review: overflow, blob icons, and a starved slot
+================================================================================
+
+Asked to review the finished cut and fix what looked wrong. Three complaints,
+all of them real, all of them visible only in a frame:
+
+1. "boxes overlapping the text"
+   The reply bubble was built by the scene and positioned by hand relative to
+   the last message. The window never saw it, so nothing checked it fit: a
+   four-line reply in a 3.8-tall window hung out of the bottom of the frame,
+   across the composer and over the web server below it.
+
+2. "small half boxes near before the text"
+   Same bug, seen from the other side. The half box was the COMPOSER, sticking
+   out from behind the overflowing reply. Nothing was drawing a stray
+   rectangle; a box that should have been in front was behind.
+
+3. "the embed token texts are too large ... the content inside them being big"
+   Exactly right, and the cause was a decision recorded in session 5. Bay
+   titles were sized for SHOT_LABEL=26 so that ONE label would read both in the
+   close-up and at the pull-back. At the close-up (13.6) that is roughly double
+   size: title plus subtitle took 58% of a 9.6-wide bay and the slot - where
+   the chips, the vectors and the chart go - got 2.5 units. Five vector columns
+   in 2.5 units is confetti.
+
+WHAT CHANGED
+
+- The chat window now places the reply. `ChatWindow.place`/`post` flow an
+  externally built bubble through the same path `add_message` uses, so it lands
+  in the gutters and gets the existing scroll-and-clear-the-composer handling.
+  `message_area_height` says how much room a bubble actually has, and the scene
+  shrinks the reply to it rather than hoping.
+- The window grew to 9.6 x 7.0 - the width of a bay, so it reads as the top of
+  the same column - which is what lets BOTH messages stay visible at the end
+  instead of the question scrolling away. W_CHAT went to 14.0, the frame width
+  lib/components/chat_ui is actually drawn for.
+- Two labels per bay again, but as a real cross-fade this time. The close-up
+  header is sized for SHOT_TIGHT and the pull-back gets `wide_label` sized for
+  SHOT_WIDE, and `reveal_labels()` swaps them. This is the thing session 5
+  recorded as "tried and removed" - it failed then because both were lit at
+  once and the swap fought an `arrive`/`settle` scale on the same group. The
+  scaling is gone, and only one label is ever visible.
+- HEADER_SHARE 0.58 -> 0.36. The slot went 2.5 -> 4.6 units and the vectors are
+  now readable at the close-up.
+- The server -> model rail no longer draws a line through the middle of "THE
+  MODEL": it stops above the caption, and `routing.join` bridges the gap, so
+  the travelling token still crosses it. Its other end starts below the
+  server's own caption rather than behind it.
+- Pull-back comet dissipation 0.14 -> 0.08s. At circuit speed the longer tail
+  reached from the transformer to the corner and its per-frame chords cut
+  visibly across the bays.
+- SHOT_WIDE 48.5 -> 57.8, which is what the taller stack actually needs.
+  `validate()` catches this, which is the only reason it is right.
+
+THE ONE THAT WOULD HAVE SHIPPED
+Bringing the wide labels up turned every bay icon into a solid white blob. A
+Lucide icon is a stroked outline with the fill deliberately cleared, and
+`set_opacity` raises FILL opacity too. FadeIn gets away with it because it
+interpolates back to the authored state; an absolute `set_opacity(1.0)` does
+not. This is the same class of bug as session 5's glow halos - the fix there
+was "animate stroke, not fill", and it is the fix here: `Glyph.fade_to_opacity`
+fades outlines on stroke and indicator dots on fill, and `Station._fade_parts`
+routes each half of a label to the channel it uses.
+
+Nothing in the model was wrong at any point. All three bugs were compositing,
+and all three were invisible to the snapshot grid. Frames, every time.
+
+STILL BLOCKED ON A HUMAN (seventh session)
+1. harness-hook-bash-false-positive. Hit twice more: a `sed -i` whose pattern
+   mentions no protected path still tripped it because the same command line
+   ran the Evaluator through a pipe. Splitting the command works.
+2. harness-ci.
+3. default branch - still the feature branch.

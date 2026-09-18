@@ -56,7 +56,10 @@ ANSWER = "It turns your words into numbers, then predicts the next one."
 # Must clear a 9.6-wide bay with margin; kept in step with the set's SHOT_TIGHT,
 # which is what the in-bay type is sized against.
 W_TIGHT = 13.6
-W_CHAT = 11.0
+#: The chat shot. `lib/components/chat_ui` is sized in absolute theme points
+#: against a full 14-unit frame, so this is the width at which its type comes
+#: out the size it was drawn for — and it clears a 9.6x7.0 window with margin.
+W_CHAT = 14.0
 W_MEDIUM = 17.0
 W_WIDE = 26.0
 
@@ -311,13 +314,14 @@ class TheFactory(MovingCameraScene):
     def beat_return(self, token) -> None:
         s = self.set
 
-        # Sized for the finished sentence and placed in the assistant gutter, so
-        # it never reflows as words land — the same thing a real streaming UI does.
-        self.answer = StreamingBubble(ANSWER, max_width=4.0)
-        self.answer.next_to(s.chat.messages[-1], DOWN, buff=theme.PAD_MD)
-        self.answer.shift(
-            RIGHT * ((s.chat.frame.get_left()[0] + theme.PAD_MD) - self.answer.get_left()[0])
-        )
+        # Sized for the finished sentence so it never reflows as words land —
+        # the same thing a real streaming UI does — and then handed to the chat
+        # window to place. Positioning it by hand relative to the last message
+        # is what let it hang out of the bottom of the frame and draw itself
+        # across the composer and the web server underneath.
+        self.answer = StreamingBubble(ANSWER, max_width=s.chat.message_max_width)
+        self._fit_in_window(self.answer, s.chat)
+        s.chat.post(self.answer, "assistant")
         self.answer.body.set_opacity(0.0)
         self.add(self.answer)
 
@@ -376,9 +380,11 @@ class TheFactory(MovingCameraScene):
             runner = Dot(radius=0.22, color=theme.TOKEN)
             runner.move_to(loop.point_from_proportion(0))
             # Short dissipation: at this speed a long tail stops reading as a
-            # comet and starts reading as a line drawn through the machines.
+            # comet and starts reading as a line drawn through the machines,
+            # and its straight per-frame chords cut the corners of the circuit
+            # visibly where the rail turns under the box.
             spark = effects.comet(runner, color=theme.TOKEN, width=9,
-                                  dissipating_time=0.14)
+                                  dissipating_time=0.08)
             self.add(spark, runner)
             self.play(
                 MoveAlongPath(runner, loop, run_time=1.7),
@@ -413,6 +419,20 @@ class TheFactory(MovingCameraScene):
         self.wait(0.6)
 
     # ------------------------------------------------------------- helpers
+    @staticmethod
+    def _fit_in_window(bubble, chat) -> None:
+        """Shrink ``bubble`` until the chat window can actually show it.
+
+        The window has no clipping mask: a bubble too tall for the message area
+        is either drawn straight through the composer and out of the frame, or
+        scrolled far enough up that the window hides it. Either way the reply
+        the whole film builds to is unreadable, so the bubble yields, not the
+        window.
+        """
+        room = chat.message_area_height
+        if bubble.height > room:
+            bubble.scale(room / bubble.height)
+
     def _note(self, station, text: str):
         """A caption under a station bay. Local: only this scene needs it."""
         note = utils._text(text, theme.SIZE_CAPTION, theme.FG_MUTED, theme.FONT_BODY)

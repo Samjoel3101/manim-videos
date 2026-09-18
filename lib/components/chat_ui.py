@@ -333,6 +333,22 @@ class ChatWindow(VGroup):
     def message_max_width(self) -> float:
         return self.win_width * 0.72
 
+    @property
+    def message_area_height(self) -> float:
+        """Vertical room a single bubble has between the divider and composer.
+
+        A bubble taller than this cannot be shown: scrolling it clear of the
+        composer pushes its top past the divider, and a message whose top is
+        above the divider is hidden (there is no clipping mask). So callers
+        building their own bubble — a :class:`StreamingBubble`, typically —
+        size it against this rather than guessing, which is what had a
+        four-line reply hanging out of the bottom of the window and across
+        everything drawn below it.
+        """
+        return float(
+            self._top_of_message_area()[1] - self._bottom_of_message_area()
+        )
+
     def _top_of_message_area(self):
         return self.divider.get_bottom() + DOWN * theme.PAD_MD
 
@@ -342,13 +358,17 @@ class ChatWindow(VGroup):
             return self.input.get_top()[1] + theme.PAD_MD
         return self.frame.get_bottom()[1] + theme.PAD_MD
 
-    def make_message(self, text: str, sender: str = "user") -> ChatBubble:
-        """Build a correctly sized and positioned bubble without adding it yet.
+    def place(self, bubble: Mobject, sender: str = "user") -> Mobject:
+        """Position ``bubble`` where the next message in this transcript goes.
 
-        Useful when a scene wants to animate the bubble in itself; call
-        :meth:`commit` afterwards so later messages stack below it.
+        Split out of :meth:`make_message` so a bubble the caller built itself —
+        a :class:`StreamingBubble`, say — lands in the transcript flow and the
+        window's gutters instead of being positioned by hand near the window.
+        Hand-placing is what let a reply escape the frame entirely.
         """
-        bubble = ChatBubble(text, sender, max_width=self.message_max_width)
+        if sender not in ("user", "assistant"):
+            raise ValueError("sender must be 'user' or 'assistant'")
+
         if len(self.messages) == 0:
             bubble.next_to(self._top_of_message_area(), DOWN, buff=0)
         else:
@@ -362,6 +382,20 @@ class ChatWindow(VGroup):
             target_x = self.frame.get_left()[0] + theme.PAD_MD
             bubble.shift(RIGHT * (target_x - bubble.get_left()[0]))
         return bubble
+
+    def post(self, bubble: Mobject, sender: str = "user") -> Mobject:
+        """Place an externally built bubble and attach it to the transcript."""
+        return self.commit(self.place(bubble, sender))
+
+    def make_message(self, text: str, sender: str = "user") -> ChatBubble:
+        """Build a correctly sized and positioned bubble without adding it yet.
+
+        Useful when a scene wants to animate the bubble in itself; call
+        :meth:`commit` afterwards so later messages stack below it.
+        """
+        return self.place(
+            ChatBubble(text, sender, max_width=self.message_max_width), sender
+        )
 
     def commit(self, bubble: ChatBubble) -> ChatBubble:
         """Attach an already-built bubble to the transcript, scrolling if needed."""

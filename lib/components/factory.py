@@ -32,7 +32,13 @@ from lib import theme, typography, utils
 
 #: Largest share of a wide bay's width a left-hand header may take. The rest is
 #: the slot, which a close-up needs for its content.
-HEADER_SHARE = 0.58
+#:
+#: Kept well under half deliberately. The bay's *content* is the subject of a
+#: close-up — the chips, the vectors, the chart — and the header only has to
+#: name what is doing the work. An earlier 0.58 left the slot barely 2.5 units
+#: wide inside a 9.6 bay, so five vector columns rendered as illegible confetti
+#: beside a title three times their size.
+HEADER_SHARE = 0.36
 
 
 class Station(VGroup):
@@ -165,6 +171,10 @@ class Station(VGroup):
             header.move_to(self.bay.get_left() + RIGHT * (header.width / 2 + theme.PAD_MD))
 
         self.header = header
+        #: The header's fading parts, split by how they carry colour: text is
+        #: filled, an icon is stroked. See :meth:`_fade_parts`.
+        self.header_words = words
+        self.header_icon = self.icon
         self.add(self.bay, header)
 
         self.content = VGroup()
@@ -175,18 +185,21 @@ class Station(VGroup):
         # a UI mockup rather than a machine — so the bay names itself, inside,
         # at a size meant for that shot. Hidden until the pull-back reveals it.
         self.wide_label = None
+        self.wide_label_words = None
+        self.wide_label_icon = None
         if wide_label:
             from lib.components.glyph import Glyph
 
-            words = typography.text(
+            label_words = typography.text(
                 "heading", wide_label, frame_width=wide_width,
                 color=self.accent, bold=True,
             )
-            parts = [words]
-            if icon:
-                parts.insert(
-                    0, Glyph(icon, color=self.accent, height=words.height * 1.25)
-                )
+            label_icon = (
+                Glyph(icon, color=self.accent, height=label_words.height * 1.25)
+                if icon
+                else None
+            )
+            parts = [label_words] if label_icon is None else [label_icon, label_words]
             label = VGroup(*parts).arrange(RIGHT, buff=theme.PAD_MD)
             factor = min(
                 (width * 0.82) / label.width, (height * 0.62) / label.height, 1.0
@@ -194,8 +207,13 @@ class Station(VGroup):
             if factor < 1.0:
                 label.scale(factor)
             label.move_to(self.bay.get_center())
-            label.set_opacity(0.0)
             self.wide_label = label
+            self.wide_label_words = label_words
+            self.wide_label_icon = label_icon
+            # Hidden the same way it will later be shown — on fill for text and
+            # stroke for the icon — because a blanket set_opacity would fill the
+            # icon's outlines in and it would come back as a solid blob.
+            self.set_wide_opacity(0.0)
             self.add(label)
 
         self.marquee = None
@@ -298,6 +316,32 @@ class Station(VGroup):
         self.bay.set_fill(theme.BG_ELEVATED, opacity=1.0)
         return self
 
+    # ------------------------------------------------------- label cross-fade
+    @staticmethod
+    def _fade_parts(words, icon, opacity: float) -> list:
+        """Animations fading a text+icon pair, each on the channel it uses.
+
+        Text carries its colour in the fill; a Lucide icon carries it in the
+        stroke with the fill deliberately cleared. Fading both with a blanket
+        ``set_opacity`` raises the icon's fill too and it renders as a solid
+        blob — the same class of bug as lighting a glow halo by fill rather
+        than stroke, and just as invisible until someone looks at a frame.
+        """
+        anims = []
+        if words is not None:
+            anims.append(words.animate.set_fill(opacity=opacity))
+        if icon is not None:
+            anims.append(icon.animate.fade_to_opacity(opacity))
+        return anims
+
+    def set_wide_opacity(self, opacity: float) -> "Station":
+        """Show or hide the wide-shot label immediately, without animating."""
+        if self.wide_label_words is not None:
+            self.wide_label_words.set_fill(opacity=opacity)
+        if self.wide_label_icon is not None:
+            self.wide_label_icon.fade_to_opacity(opacity)
+        return self
+
     def reveal_wide(self, opacity: float = 1.0) -> list:
         """Animations swapping the close-up header for the wide-shot label.
 
@@ -309,8 +353,10 @@ class Station(VGroup):
             return []
         # The label may have been re-parented out of this group by the set (see
         # FactorySet), so address it directly rather than through the station.
-        anims = [self.wide_label.animate.set_opacity(opacity)]
-        anims.append(self.header.animate.set_opacity(1.0 - opacity))
+        anims = self._fade_parts(self.wide_label_words, self.wide_label_icon, opacity)
+        anims += self._fade_parts(
+            self.header_words, self.header_icon, 1.0 - opacity
+        )
         if self.content is not None and len(self.content):
             anims.append(self.content.animate.set_opacity(1.0 - opacity))
         return anims

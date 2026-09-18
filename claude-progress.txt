@@ -324,3 +324,37 @@ STILL BLOCKED ON A HUMAN (sixth session)
    and contains a redirect. Dropping the redirect worked.
 2. harness-ci.
 3. NEW — default branch. See above. One setting, one click.
+
+
+================================================================================
+SESSION 7 - review the cut, fix the ending
+================================================================================
+
+Reviewed the accepted cut frame by frame after a report that the ending was not
+up to standard. Everything found was real. The video-level write-up is in
+videos/chatgpt_message_journey/claude-progress.txt; what landed in /lib:
+
+- lib/components/glyph.py: `Glyph.fade_to_opacity`. Icons are stroked outlines
+  with the fill cleared, so a blanket `set_opacity` fills them in and they
+  render as solid blobs. Any animation that sets an ABSOLUTE opacity on a group
+  containing an icon needs this; FadeIn is safe because it interpolates back to
+  the authored state. Second time this repo has been bitten by fill-vs-stroke
+  (see session 5's glow halos) - if a thing looks wrong and the model says it
+  is right, check which channel carries its colour.
+- lib/components/chat_ui.py: `ChatWindow.place`/`post` put an externally built
+  bubble through the same layout path as `add_message`, and
+  `message_area_height` tells a caller how much room a bubble really has. A
+  scene positioning a bubble by hand near a window is how a reply ended up
+  drawn across everything below the window.
+- lib/components/factory.py: HEADER_SHARE 0.58 -> 0.36, and `reveal_wide` now
+  fades text on fill and icons on stroke. A bay's content is the subject of its
+  close-up; the header only names it.
+
+Tests added for all three in tests/test_components_structure.py and
+tests/test_effects_and_glyph.py. Evaluator green including render, and
+assets/chatgpt_message_journey.mp4 replaced with the reviewed cut.
+
+STILL BLOCKED ON A HUMAN (seventh session)
+1. harness-hook-bash-false-positive.
+2. harness-ci.
+3. default branch.

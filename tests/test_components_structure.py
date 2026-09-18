@@ -468,3 +468,86 @@ def test_rail_between_spans_the_gap_between_two_mobjects():
     rail = rail_between(a, b)
     assert rail.start[0] > a.get_right()[0]
     assert rail.end[0] < b.get_left()[0]
+
+
+def test_chat_window_places_an_externally_built_bubble_in_the_transcript():
+    """A StreamingBubble is built by the caller but must still flow in the window.
+
+    Hand-positioning one relative to the last message is what let the final
+    reply hang out of the bottom of the frame, drawn across the composer and
+    everything beneath the window.
+    """
+    win = ChatWindow(width=9.6, height=7.0)
+    first = win.add_message("How does it work?", "user")
+    reply = StreamingBubble("Like this, roughly.", max_width=win.message_max_width)
+    win.post(reply, "assistant")
+
+    assert reply in win.messages
+    assert reply.get_top()[1] < first.get_bottom()[1], "must stack below"
+    assert reply.get_left()[0] >= win.frame.get_left()[0], "inside the left gutter"
+    assert reply.get_right()[0] <= win.frame.get_right()[0]
+    assert reply.get_bottom()[1] > win.input.get_top()[1], "must clear the composer"
+
+
+def test_chat_window_reports_the_room_a_bubble_actually_has():
+    win = ChatWindow(width=9.6, height=7.0)
+    room = win.message_area_height
+    assert room > 0
+    # A bubble exactly that tall is the largest one the window can show: it
+    # sits between the divider and the composer with nothing to spare.
+    assert room == pytest.approx(
+        win.divider.get_bottom()[1]
+        - theme.PAD_MD
+        - win.input.get_top()[1]
+        - theme.PAD_MD
+    )
+
+
+def test_chat_window_place_rejects_an_unknown_sender():
+    with pytest.raises(ValueError):
+        ChatWindow().place(ChatBubble("hi"), "operator")
+
+
+def test_station_cross_fades_its_two_labels_without_filling_the_icon():
+    """The wide label starts hidden and comes up as an outline, not a blob."""
+    station = Station(
+        "Embedding",
+        subtitle="ids \u2192 vectors",
+        icon="grid-3x3",
+        width=9.6,
+        height=2.4,
+        header_side="left",
+        shot_width=13.6,
+        wide_label="Embedding",
+        wide_width=48.0,
+    )
+    assert station.wide_label is not None
+    assert station.wide_label_words.get_fill_opacity() == pytest.approx(0.0)
+
+    station.set_wide_opacity(1.0)
+    assert station.wide_label_words.get_fill_opacity() == pytest.approx(1.0)
+    outlines = [
+        p
+        for p in station.wide_label_icon.parts
+        if not getattr(p, "_is_indicator_dot", False)
+    ]
+    assert all(p.get_fill_opacity() == pytest.approx(0.0) for p in outlines)
+
+    # One animation per fading piece of each label, on the channel it uses.
+    assert len(station.reveal_wide(1.0)) == 4
+
+
+def test_station_header_leaves_the_slot_most_of_a_wide_bay():
+    """The content is the subject of a close-up; the header only names it."""
+    station = Station(
+        "Transformer",
+        subtitle="96 layers",
+        icon="layers",
+        width=9.6,
+        height=2.4,
+        header_side="left",
+        shot_width=13.6,
+    )
+    slot_width, _ = station.slot_size
+    assert station.header.width <= 9.6 * 0.4
+    assert slot_width > station.header.width
