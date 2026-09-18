@@ -1,9 +1,14 @@
 {
   "title": "What happens when you send a message to ChatGPT",
   "slug": "chatgpt_message_journey",
-  "note": "Render manifest: the scenes that EXIST, in cut order. The full eight-scene plan lives in feature_list.json. A scene is added here only once it renders green, so render.py always cuts a watchable partial video and the Evaluator never tries to render a module nobody has written yet.",
+  "note": "One continuous shot, so one scene. TheFactory is the whole film: the set is built once in factory_set.py and the camera flies through it. There is deliberately nothing to concatenate — cutting between scenes is what this video is built to avoid.",
   "scenes": [
-    { "order": 1, "class": "UserInput",    "module": "scene_01_user_input.py",   "budget_seconds": 45 },
-    { "order": 3, "class": "Tokenization", "module": "scene_03_tokenization.py", "budget_seconds": 55 }
+    {
+      "order": 1,
+      "class": "TheFactory",
+      "module": "scene_factory.py",
+      "budget_seconds": 30,
+      "actual_seconds": 29.3
+    }
   ]
 }

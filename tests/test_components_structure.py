@@ -6,9 +6,17 @@ represented here — a component with no structural test is not done.
 
 import numpy as np
 import pytest
+from manim import Dot
 
 from lib import theme
-from lib.components.chat_ui import ChatBubble, ChatInput, ChatWindow, TypingIndicator
+from lib.components.chat_ui import (
+    ChatBubble,
+    ChatInput,
+    ChatWindow,
+    StreamingBubble,
+    TypingIndicator,
+)
+from lib.components.factory import Conveyor, PipelineBox, Station, rail_between
 from lib.components.network import (
     DeviceNode,
     Link,
@@ -103,6 +111,65 @@ def test_chat_input_clear_resets_to_placeholder():
     assert box.text_mob.text.startswith("Message")
     # The caret returns to the left gutter, not to the end of the old text.
     assert box.caret.get_center()[0] < box.box.get_center()[0]
+
+
+def test_streaming_bubble_hides_every_word_until_revealed():
+    bubble = StreamingBubble("one two three four")
+    assert bubble.word_count == 4
+    assert all(w.get_fill_opacity() == pytest.approx(0.0) for w in bubble.words)
+
+
+def test_streaming_bubble_reveals_a_prefix_in_order():
+    bubble = StreamingBubble("one two three four")
+    bubble.reveal(2)
+    opacities = [w.get_fill_opacity() for w in bubble.words]
+    assert opacities[:2] == pytest.approx([1.0, 1.0])
+    assert opacities[2:] == pytest.approx([0.0, 0.0])
+    bubble.reveal_next()
+    assert bubble.revealed == 3
+
+
+def test_streaming_bubble_clamps_out_of_range_reveals():
+    bubble = StreamingBubble("one two")
+    assert bubble.reveal(99).revealed == 2
+    assert bubble.reveal(-5).revealed == 0
+
+
+def test_streaming_bubble_wraps_within_max_width_and_does_not_reflow():
+    bubble = StreamingBubble("alpha beta gamma delta epsilon zeta eta", max_width=3.0)
+    assert len(bubble.lines) > 1, "long text must wrap"
+    assert bubble.width <= 3.0 + 1e-6
+    # Size is fixed up front: revealing words must not change the layout.
+    before = (bubble.width, bubble.height, bubble.get_center()[0])
+    bubble.reveal(bubble.word_count)
+    after = (bubble.width, bubble.height, bubble.get_center()[0])
+    assert before == pytest.approx(after)
+
+
+def test_streaming_bubble_keeps_words_on_a_common_baseline():
+    """Per-word mobjects get centred by arrange; a shared Text keeps baselines.
+
+    Regression: "your" used to float above its neighbours because its bounding
+    box includes a descender and arrange centres on the box, not the baseline.
+    """
+    bubble = StreamingBubble("noon noon noon", max_width=12.0)
+    bottoms = [w.get_bottom()[1] for w in bubble.words]
+    assert bottoms == pytest.approx([bottoms[0]] * len(bottoms), abs=1e-6)
+
+
+def test_streaming_bubble_lets_descenders_drop_below_the_baseline():
+    bubble = StreamingBubble("noon your", max_width=12.0)
+    assert bubble.words[1].get_bottom()[1] < bubble.words[0].get_bottom()[1]
+
+
+def test_streaming_bubble_rejects_empty_text():
+    with pytest.raises(ValueError):
+        StreamingBubble("   ")
+
+
+def test_streaming_bubble_rejects_unknown_sender():
+    with pytest.raises(ValueError):
+        StreamingBubble("hi", sender="robot")
 
 
 def test_typing_indicator_has_three_dots():
@@ -285,3 +352,119 @@ def test_attention_matrix_is_causal_and_row_normalised():
 def test_residual_stream_points_upward():
     arrow = ResidualStream(height=2.0).arrow
     assert arrow.get_end()[1] > arrow.get_start()[1]
+
+
+# ---------------------------------------------------------------- factory
+def test_station_fit_shrinks_oversized_content_into_the_bay():
+    station = Station("Tokenizer", width=6.6, height=5.4)
+    strip = TokenStrip("How does tokenization actually work here?")
+    assert strip.width > station.slot_size[0], "test needs content wider than the slot"
+    station.load(strip)
+    assert strip.width <= station.slot_size[0] + 1e-6
+    assert strip.height <= station.slot_size[1] + 1e-6
+
+
+def test_station_fit_never_scales_content_up():
+    station = Station("Tiny")
+    dot = Dot(radius=0.05)
+    before = dot.width
+    station.fit(dot)
+    assert dot.width == pytest.approx(before)
+
+
+def test_station_content_lands_below_the_title():
+    station = Station("Tokenizer", subtitle="text to ids")
+    strip = TokenStrip("a b")
+    station.load(strip)
+    assert strip.get_top()[1] < station.subtitle_mob.get_bottom()[1] + 1e-6
+
+
+def test_station_entry_and_exit_are_opposite_edges():
+    station = Station("S")
+    assert station.entry[0] < station.exit[0]
+    assert station.entry[0] == pytest.approx(station.bay.get_left()[0])
+
+
+def test_station_marquee_starts_invisible_and_reveals():
+    station = Station("S", marquee="SAMPLE")
+    assert station.marquee.get_fill_opacity() == pytest.approx(0.0)
+    station.reveal_marquee()
+    assert station.marquee.get_fill_opacity() == pytest.approx(1.0)
+    # A station without a marquee must tolerate the same call.
+    Station("S").reveal_marquee()
+
+
+def test_station_marquee_is_large_enough_for_the_wide_shot():
+    station = Station("Tokenizer", marquee="TOKENIZE")
+    assert station.marquee.height > station.title_mob.height * 2
+
+
+def test_station_marquee_is_clamped_to_the_bay_width():
+    """Adjacent stations must never have colliding marquees."""
+    station = Station("Tokenizer", width=6.4, marquee="DETOKENIZATION")
+    assert station.marquee.width <= 6.4 + 1e-6
+
+
+def test_station_marquee_sits_below_the_bay():
+    """Below, so it cannot collide with an enclosing PipelineBox title."""
+    station = Station("S", marquee="SAMPLE")
+    assert station.marquee.get_top()[1] < station.bay.get_bottom()[1]
+
+
+def test_station_activation_round_trips():
+    station = Station("S")
+    base = station.bay.get_stroke_width()
+    station.activate()
+    assert station.bay.get_stroke_width() > base
+    station.deactivate()
+    assert station.bay.get_stroke_width() == pytest.approx(base)
+
+
+def test_station_clear_content_empties_the_slot():
+    station = Station("S")
+    station.load(TokenStrip("a b"))
+    assert len(station.content) == 1
+    station.clear_content()
+    assert len(station.content) == 0
+
+
+def test_pipeline_box_encloses_its_contents():
+    left = Station("A")
+    right = Station("B").shift(np.array([9.0, 0, 0]))
+    box = PipelineBox([left, right], title="LLM")
+    assert box.frame.get_left()[0] < left.get_left()[0]
+    assert box.frame.get_right()[0] > right.get_right()[0]
+    assert box.frame.get_bottom()[1] < left.get_bottom()[1]
+
+
+def test_pipeline_box_rejects_empty_contents():
+    with pytest.raises(ValueError):
+        PipelineBox([], title="LLM")
+
+
+def test_conveyor_path_is_traversable_end_to_end():
+    rail = Conveyor([[0, 0, 0], [4, 0, 0], [4, -3, 0]])
+    assert rail.point_at(0.0) == pytest.approx(np.array([0, 0, 0]), abs=1e-6)
+    assert rail.point_at(1.0) == pytest.approx(np.array([4, -3, 0]), abs=1e-6)
+    # Clamped, not wrapped or extrapolated.
+    assert rail.point_at(2.0) == pytest.approx(rail.point_at(1.0))
+
+
+def test_conveyor_chevrons_sit_on_the_rail():
+    rail = Conveyor([[0, 0, 0], [6, 0, 0]], chevrons=3)
+    assert len(rail.chevrons) == 3
+    for mark in rail.chevrons:
+        assert mark.get_center()[1] == pytest.approx(0.0, abs=0.05)
+
+
+def test_conveyor_rejects_a_single_point():
+    with pytest.raises(ValueError):
+        Conveyor([[0, 0, 0]])
+
+
+def test_rail_between_spans_the_gap_between_two_mobjects():
+    a = Station("A")
+    b = Station("B").shift(np.array([12.0, 0, 0]))
+    rail = rail_between(a, b)
+    assert rail.start[0] > a.get_right()[0]
+    assert rail.end[0] < b.get_left()[0]

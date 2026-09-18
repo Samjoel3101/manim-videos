@@ -7,34 +7,77 @@ not work, and what the next session should pick up.
 SETUP — project scaffolded by scripts/new_video.py.
 
 ----------------------------------------------------------------------
-SESSION 1 — script written, scenes 1 and 3 built.
+SESSION 1 — script written, scenes 1 and 3 built as standalone cut scenes.
+(Superseded by session 2; kept here because the reasoning still applies.)
 
-- script.md covers all eight scenes with narration, beats and duration budgets.
-  feature_list.json has acceptance criteria per scene; scenes.json holds only
-  the scenes that actually render.
-- Scene 1 (UserInput): ChatWindow 6.6x6.2, question typed at 11 cps, ghost text
-  transforms into the user bubble, composer clears as a hard cut, typing
-  indicator pulses in the left gutter, closing caption. 10.3s rendered.
-- Scene 3 (Tokenization): sentence "How does tokenization work?" separates into
-  7 chips on one row, leading-space callout on " does", split-word callout over
-  toke/niza/tion, then token ids fade in beneath. 18.4s rendered.
-- Both reviewed frame by frame, not just by exit code.
+- Scene 1 typed the question and sent it; scene 3 split a sentence into chips.
+- Both looked right in isolation and both are now gone — see below.
+- simple_tokenize only splits words longer than 7 characters, so a demo
+  sentence needs a genuinely long word or the split-word beat silently
+  disappears. Still true in the factory scene.
 
-DECISIONS WORTH KNOWING
-- Scene 3 uses "tokenization" rather than "ChatGPT" in the demo sentence,
-  because simple_tokenize only splits words longer than 7 characters and the
-  scene needs a visible split. If the sentence changes, check the split still
-  happens — `_split_pieces` returns empty otherwise and the callout silently
-  disappears.
-- The scene's `_callout` / `_callout_group` brace helpers are deliberately local.
-  They are plausibly reusable, but only one scene needs them so far. Promote to
-  lib/components/ when a second scene reaches for them.
-- ChatInput.clear() was promoted into /lib during this session (with a test) —
-  every chat-driven video needs a composer reset, so it passed the bar.
+----------------------------------------------------------------------
+SESSION 2 — restructured into one continuous 30s shot.
+
+WHY
+Review feedback: the two cut scenes were the right *style* but the wrong
+*structure* — 33 seconds that covered only "someone typed" and "words become
+chips", with a hard cut between them. What the video wants to be is a factory
+tour: one camera move through a set that is built once, close on each machine,
+then a pull-back showing the whole plant running end to end.
+
+BUILT
+- lib/camera.py — focus / frame_all / snap_to. Returns built Animations so a
+  camera move can be played *with* the action at its destination; that is what
+  makes the shot feel continuous instead of stop-and-go.
+- lib/components/factory.py — Station, PipelineBox, Conveyor, rail_between.
+  Reusable well beyond LLMs: any "how X works" explainer is a factory tour.
+- lib/components/chat_ui.StreamingBubble — text arriving a word at a time.
+- scenes/factory_set.py — the set: chat, web server, four stations inside one
+  model box, and a return rail closing the loop. ~48 units wide, so the final
+  pull-back is 3.3x.
+- scenes/scene_factory.py — the choreography, 8 beats, 29.3s.
+- Deleted scene_01_user_input.py and scene_03_tokenization.py. Both beats live
+  on inside the factory shot; keeping them would have been dead code.
+
+WHAT WENT WRONG (and what the fix was)
+- Tight shots clipped their subject. W_TIGHT was 8.4, which at 16:9 is only 4.7
+  of frame height — a 5.2-tall station bay does not fit, let alone its caption.
+  Raised to 12.0. Found by looking at frames; no test could have caught it, and
+  the reason is now a comment next to the constant.
+- Station marquees overlapped each other and the "THE MODEL" title in the wide
+  shot. Fixed by clamping each marquee to its bay width and moving it below the
+  bay. Two tests now guard both properties.
+- The PipelineBox title hung down into every station close-up. Its `pad` is what
+  lifts it clear, so pad went 1.1 → 2.2 and the docstring now says that is what
+  pad is for.
+- The "prediction" vector escaped the transformer bay, because it was positioned
+  next_to the stack *after* the stack had been fitted. Now the stack and the
+  output are grouped and fitted together.
+- StreamingBubble v1 built one Text per word and arranged them. arrange centres
+  on the bounding box, so "your" floated visibly above its neighbours. Rebuilt
+  on a single Text with explicit line breaks, addressing words by glyph range.
+  Two regression tests: common baseline, and descenders still dipping.
+- The greedy word wrap measured words in isolation, so kerning across a space
+  could push a line 0.005 over max_width. Clamped after construction.
+- Camera focus on a Station now targets `station.bay`, not the station group —
+  the group includes the invisible marquee hanging below it, which dragged the
+  framing down.
+
+KNOWN GAPS (not bugs)
+- No voice-over, so pacing is eyeballed against the script's beat sheet rather
+  than locked to narration. Tracked as `voiceover-pass`.
+- The transformer close-up sweeps the stack but does not show attention links,
+  even though AttentionLines and AttentionMatrix exist and are tested. It was a
+  4-second beat and adding attention made it feel rushed. Tracked as
+  `attention-detail` — needs a call on whether the beat gets longer or the
+  video gets longer.
+- In the final wide shot the reply text is too small to read. That is inherent
+  to a 3.3x pull-back and was accepted: the beat is about seeing the circuit,
+  not the words. If it should read, the chat window needs to be bigger in world
+  space, which changes every earlier shot.
 
 NEXT
-- Scene 2 (NetworkRequest) is next by priority. network.RequestPath,
-  PacketStream and ServerRack are already built and tested; this should be
-  assembly, no new components.
-- Scenes 4-8 remain planned. Their /lib components all exist, so the same
-  applies: check /lib before writing anything new.
+- Highest-priority incomplete item is `voiceover-pass`.
+- If more length is wanted, `attention-detail` is the best next beat: the
+  components already exist and are tested, so it is choreography only.

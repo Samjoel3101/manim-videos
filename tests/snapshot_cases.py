@@ -13,9 +13,10 @@ from __future__ import annotations
 from typing import Callable
 
 import numpy as np
-from manim import Mobject
+from manim import Mobject, VGroup
 
-from lib.components.chat_ui import ChatWindow, TypingIndicator
+from lib.components.chat_ui import ChatWindow, StreamingBubble, TypingIndicator
+from lib.components.factory import Conveyor, PipelineBox, Station
 from lib.components.network import RequestPath, ServerRack
 from lib.components.probability import ProbabilityChart
 from lib.components.tokens import TokenStrip
@@ -51,7 +52,47 @@ def _probability_chart() -> Mobject:
     )
 
 
-#: name -> factory. Names become ``tests/baselines/<name>.json``.
+def _station():
+    station = Station("Tokenizer", subtitle="text → ids", marquee="TOKENIZE")
+    station.load(TokenStrip("How does ChatGPT work?", per_line=3, show_ids=True))
+    return station
+
+
+def _station_marquee():
+    """The wide-shot state. Guards the marquee's size and placement."""
+    station = Station("Sampling", subtitle="vector → token", marquee="SAMPLE")
+    station.reveal_marquee()
+    return station
+
+
+def _pipeline_box():
+    stations = [
+        Station(name, width=4.2, height=3.4)
+        for name in ("Tokenizer", "Embedding", "Transformer", "Sampling")
+    ]
+    for i, station in enumerate(stations):
+        station.move_to(np.array([i * 4.8 - 7.2, 0.0, 0.0]))
+    # PipelineBox encloses without owning — stations are positioned and added
+    # independently by the set — so the case must draw both.
+    box = PipelineBox(stations, title="THE MODEL", subtitle="one forward pass")
+    return VGroup(box, *stations).scale(0.42)
+
+
+def _conveyor():
+    return Conveyor(
+        [[-5, 1.5, 0], [2, 1.5, 0], [2, -1.5, 0], [5, -1.5, 0]], chevrons=4
+    )
+
+
+def _streaming_bubble():
+    bubble = StreamingBubble(
+        "It turns your words into numbers, then predicts the next one.", max_width=4.0
+    )
+    bubble.reveal(5)
+    return bubble.scale(1.8)
+
+
+#: name -> factory. Names become a JSON baseline of the same name.
 CASES: dict[str, Callable[[], Mobject]] = {
     "chat_window": _chat_window,
     "typing_indicator": lambda: TypingIndicator().scale(3),
@@ -63,4 +104,9 @@ CASES: dict[str, Callable[[], Mobject]] = {
     "probability_chart": _probability_chart,
     "transformer_stack": lambda: TransformerStack(n_layers=96, shown=4, label="96 layers"),
     "attention_matrix": lambda: AttentionMatrix(["How", "does", "it", "work"]).scale(1.6),
+    "station": _station,
+    "station_marquee": _station_marquee,
+    "pipeline_box": _pipeline_box,
+    "conveyor": _conveyor,
+    "streaming_bubble": _streaming_bubble,
 }

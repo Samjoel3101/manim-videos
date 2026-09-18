@@ -69,3 +69,36 @@ NEXT SESSION
   (network.RequestPath, PacketStream, ServerRack) already exist and are tested,
   so it should be assembly rather than new component work.
 - Add the scene to scenes.json only once it renders green.
+
+----------------------------------------------------------------------
+SESSION 2 — continuous-shot architecture; two new /lib modules.
+
+BUILT
+- lib/camera.py (focus / frame_all / snap_to) and lib/components/factory.py
+  (Station, PipelineBox, Conveyor, rail_between): the vocabulary for
+  continuous-shot "factory tour" videos, which is the format the first video
+  turned out to need. Both are subject-agnostic — a request through a web
+  stack or a commit through CI has the same shapes.
+- lib.components.chat_ui.StreamingBubble — word-at-a-time text.
+- 35 more tests (89 total) and 5 more snapshot baselines (15 total).
+
+WHAT THE TESTS AND THE FRAME REVIEW EACH CAUGHT
+Worth recording because it is evidence about which tier earns its keep:
+- Tests caught: StreamingBubble baseline jitter, the max_width overshoot, the
+  marquee-overlap regression once it was written as an invariant.
+- Only looking at frames caught: tight shots clipping their subject, the box
+  title hanging into close-ups, the prediction vector escaping its bay, and
+  the empty-looking reply bubble. All four are framing bugs, which is exactly
+  the class the snapshot signature is documented as blind to.
+This is the second session running where the render review found defects the
+suite could not. The habit is load-bearing, not ceremony.
+
+STILL BLOCKED ON A HUMAN (unchanged from session 1)
+1. The protected-path hook's Bash matcher still has its false positive, and it
+   still blocks commands that merely *mention* a protected path alongside any
+   redirect. It cost real time again this session (heredocs documenting the
+   Evaluator, and a `git commit` whose message contained a `<...>` email).
+   Workaround: use the Write/Edit tools for those files, and keep `>` out of
+   commands that name a protected path. Fix is written up as
+   `harness-hook-bash-false-positive` in feature_list.json.
+2. Still no CI, for the same self-protection reason. `harness-ci`.

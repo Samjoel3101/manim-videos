@@ -10,6 +10,7 @@ vocabulary already exists in `/lib`.
 |---|---|
 | `lib/theme.py` | Colour, type, spacing, timing. The series' visual identity. |
 | `lib/components/` | Reusable visuals as VGroup subclasses. Check here first. |
+| `lib/camera.py` | Camera choreography for continuous, uncut shots. |
 | `lib/transitions.py`, `lib/utils.py` | Scene transitions; text/layout helpers. |
 | `videos/<slug>/` | One self-contained video. Has its own AGENTS.md. |
 | `tests/` | Structural + visual-regression tests for `/lib`. |
@@ -101,3 +102,19 @@ a human. Do not route around it.
 
 Slugs are lowercase with underscores — the Evaluator imports scene modules by
 dotted path.
+
+## Continuous shots
+
+The house format is one uncut camera move through a set that is built once, not
+a sequence of scenes that cut between each other. Practically:
+
+- Build the set in its own module (`scenes/<name>_set.py`) and the choreography
+  in the scene. *Where things are* and *when the camera goes there* are separate
+  concerns; mixing them gives you a scene nobody can re-time.
+- Compose the set from `lib.components.factory` (`Station`, `PipelineBox`,
+  `Conveyor`) and move the camera with `lib.camera`.
+- Play camera moves *with* the action at their destination, not before it. That
+  is why `camera.focus` returns an animation rather than playing one.
+- A tight shot must clear its subject at 16:9. Frame height is width / 1.78, and
+  a shot that crops the bottom of a bay is the commonest bug in this format —
+  the tests cannot see it, so look at the frames.

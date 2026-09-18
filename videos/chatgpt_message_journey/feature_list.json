@@ -1,133 +1,96 @@
 {
   "video": "What happens when you send a message to ChatGPT",
   "slug": "chatgpt_message_journey",
-  "note": "One entry per scene. Status is the only field a steady-state session flips. Never reword or delete acceptance criteria to make a scene pass - that is a correctness bug, not a shortcut.",
+  "note": "Restructured from eight cut scenes into one continuous 30s shot. Status is the only field a steady-state session flips. Never reword or delete acceptance criteria to make something pass - that is a correctness bug, not a shortcut.",
   "statuses": ["planned", "in_progress", "failing", "passing"],
   "features": [
     {
-      "id": "scene-01-user-input",
+      "id": "factory-set",
       "priority": 1,
-      "scene_class": "UserInput",
-      "module": "scene_01_user_input.py",
-      "title": "User types and sends a message",
+      "title": "The set: every location laid out once in world space",
+      "module": "scenes/factory_set.py",
       "status": "passing",
-      "budget_seconds": 45,
-      "lib_components": ["chat_ui.ChatWindow", "chat_ui.ChatInput", "chat_ui.TypingIndicator"],
       "acceptance": [
-        "Chat window is visible and fully inside the safe area for the whole scene",
+        "Chat, web server, four stations inside one model box, and a return rail form a closed loop",
+        "Total extent is under ~50 units, so the final pull-back stays legible",
+        "Every anchor the choreography needs (entry, exit, slot, rail endpoints) is addressable without recomputing geometry",
+        "full_loop() yields a single path a payload can traverse in one animation"
+      ]
+    },
+    {
+      "id": "shot-open",
+      "priority": 2,
+      "scene_class": "TheFactory",
+      "title": "0-6s: type, send, and cross the wire",
+      "status": "passing",
+      "acceptance": [
         "The question is typed character by character, not faded in whole",
         "Sent text becomes a right-aligned user bubble and the composer empties",
-        "A typing indicator appears on the assistant side and holds",
-        "Scene renders at the test profile with exit code 0"
+        "The message becomes a physical packet that then travels a visible rail",
+        "The web server reacts on arrival",
+        "Camera and packet move together - the shot never stops to wait"
       ]
     },
     {
-      "id": "scene-02-network-request",
-      "priority": 2,
-      "scene_class": "NetworkRequest",
-      "module": "scene_02_network_request.py",
-      "title": "The request leaves the device",
-      "status": "planned",
-      "budget_seconds": 40,
-      "lib_components": ["network.RequestPath", "network.PacketStream", "network.ServerRack"],
-      "acceptance": [
-        "Client, internet hop and server are laid out left to right",
-        "Packets visibly travel along both links in sequence",
-        "The server rack reacts when the request arrives"
-      ]
-    },
-    {
-      "id": "scene-03-tokenization",
+      "id": "shot-stations",
       "priority": 3,
-      "scene_class": "Tokenization",
-      "module": "scene_03_tokenization.py",
-      "title": "The sentence is split into tokens",
+      "scene_class": "TheFactory",
+      "title": "6-21s: four close-ups inside the model",
       "status": "passing",
-      "budget_seconds": 55,
-      "lib_components": ["tokens.TokenStrip", "tokens.TokenChip", "tokens.simple_tokenize"],
       "acceptance": [
-        "Plain sentence visibly separates into discrete chips",
-        "The leading-space convention is explicitly called out on at least one token",
-        "At least one long word is shown splitting into multiple chips",
-        "Token ids are revealed after the chips exist, not at the same time",
-        "Everything stays inside the safe area at every beat",
-        "Scene renders at the test profile with exit code 0"
+        "Tokenize, embed, transformer and sample each get a close-up in pipeline order",
+        "The payload is visibly transformed at each station, never destroyed and replaced",
+        "Nothing is clipped: every bay and its caption fit the tight shot",
+        "The elided middle of the 96-layer stack is obvious, not hidden",
+        "Neighbouring bays stay partly in frame so the viewer keeps their bearings"
       ]
     },
     {
-      "id": "scene-04-embedding",
+      "id": "shot-return",
       "priority": 4,
-      "scene_class": "Embedding",
-      "module": "scene_04_embedding.py",
-      "title": "Token ids become vectors",
-      "status": "planned",
-      "budget_seconds": 45,
-      "lib_components": ["vectors.VectorColumn", "vectors.EmbeddingGrid", "vectors.SemanticSpace"],
+      "scene_class": "TheFactory",
+      "title": "21-25s: the token rides home and becomes a word",
+      "status": "passing",
       "acceptance": [
-        "A token id is shown indexing into an embedding table",
-        "The resulting vector is shown as a truncated column, not 1536 numbers",
-        "Similar words are shown landing near each other in 2-D"
+        "The token travels the return rail as one continuous move, not a series of hops",
+        "The reply bubble is sized for the finished sentence up front and never reflows",
+        "The first words land before the camera leaves the chat"
       ]
     },
     {
-      "id": "scene-05-transformer-pass",
+      "id": "shot-pullback",
       "priority": 5,
-      "scene_class": "TransformerPass",
-      "module": "scene_05_transformer_pass.py",
-      "title": "The stack of layers refines the representation",
-      "status": "planned",
-      "budget_seconds": 70,
-      "lib_components": ["transformer.TransformerStack", "transformer.AttentionLines", "transformer.AttentionMatrix", "transformer.ResidualStream"],
+      "scene_class": "TheFactory",
+      "title": "25-30s: the whole plant, running",
+      "status": "passing",
       "acceptance": [
-        "Attention is shown as weighted links from one token to earlier tokens",
-        "The causal mask is visible - no token attends to its future",
-        "Activation sweeps bottom to top through the stack",
-        "The elided middle of the stack is obvious, not hidden"
+        "Every part of the pipeline is in frame at once",
+        "Station marquees are readable and do not overlap each other or the box title",
+        "At least three more tokens complete the full circuit",
+        "The reply finishes filling in as they land"
       ]
     },
     {
-      "id": "scene-06-sampling",
+      "id": "voiceover-pass",
       "priority": 6,
-      "scene_class": "Sampling",
-      "module": "scene_06_sampling.py",
-      "title": "Logits become probabilities and one token is picked",
+      "title": "Lock timing against a recorded voice-over",
       "status": "planned",
-      "budget_seconds": 50,
-      "lib_components": ["probability.ProbabilityChart", "probability.softmax"],
       "acceptance": [
-        "Bars are sorted descending and sum to one",
-        "Changing temperature visibly flattens and sharpens the same distribution",
-        "The sampled token is highlighted while the rest dim"
+        "Narration in script.md is recorded and its per-beat timings measured",
+        "run_time values are adjusted so beats land on the narration, not the other way round",
+        "Total runtime stays within 10% of 30s"
       ]
     },
     {
-      "id": "scene-07-token-streaming",
+      "id": "attention-detail",
       "priority": 7,
-      "scene_class": "TokenStreaming",
-      "module": "scene_07_token_streaming.py",
-      "title": "The loop runs again, one token at a time",
+      "title": "Show attention explicitly inside the transformer close-up",
       "status": "planned",
-      "budget_seconds": 50,
-      "lib_components": ["tokens.TokenStrip", "network.PacketStream", "chat_ui.ChatBubble"],
+      "note": "lib.components.transformer.AttentionLines and AttentionMatrix already exist and are tested; the current close-up only sweeps the stack. Worth adding only if the 4s beat can carry it without feeling rushed.",
       "acceptance": [
-        "The chosen token is appended to the input and the loop visibly repeats",
-        "At least three iterations play before cutting away",
-        "Tokens arrive in the chat bubble in the same order they were sampled"
-      ]
-    },
-    {
-      "id": "scene-08-response-rendered",
-      "priority": 8,
-      "scene_class": "ResponseRendered",
-      "module": "scene_08_response_rendered.py",
-      "title": "The finished answer lands back in the chat window",
-      "status": "planned",
-      "budget_seconds": 35,
-      "lib_components": ["chat_ui.ChatWindow"],
-      "acceptance": [
-        "The streamed answer is shown complete in an assistant bubble",
-        "A final pull-back shows every stage of the pipeline at once",
-        "The pipeline miniatures reuse the same components as their full scenes"
+        "Weighted links from one token to earlier tokens are visible",
+        "The causal mask reads - no token attends to its future",
+        "The beat still fits its slice of the 30s budget"
       ]
     }
   ]

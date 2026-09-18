@@ -176,6 +176,120 @@ class TypingIndicator(VGroup):
                 scene.play(dot.animate.set_opacity(0.45), run_time=beat * 0.5)
 
 
+class StreamingBubble(VGroup):
+    """An assistant bubble whose text arrives a word at a time.
+
+    The bubble is laid out at its *final* size immediately and words are then
+    revealed progressively, so it never reflows mid-stream — which is what a
+    real streaming UI does, and what stops the animation jittering.
+
+    The text is built as a **single** ``Text`` mobject with explicit line breaks
+    rather than one mobject per word. Per-word mobjects get vertically centred
+    by ``arrange``, so a word with a descender ("your") sits visibly higher than
+    its neighbours; letting Pango lay out the whole block keeps every word on a
+    common baseline. Words are then addressed by glyph range.
+
+    Reveal with :meth:`reveal`, or animate it: ``bubble.animate.reveal(n)``.
+    """
+
+    def __init__(
+        self,
+        text: str,
+        *,
+        sender: str = "assistant",
+        max_width: float = 4.4,
+        font_size: float = theme.SIZE_LABEL,
+        line_spacing: float = 0.9,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        if sender not in ("user", "assistant"):
+            raise ValueError("sender must be 'user' or 'assistant'")
+        self.sender = sender
+        accent = theme.USER if sender == "user" else theme.ASSISTANT
+
+        word_list = text.split()
+        if not word_list:
+            raise ValueError("StreamingBubble needs at least one word")
+
+        wrapped = self._wrap(word_list, max_width - 2 * theme.PAD_MD, font_size)
+        self.text_mob = utils._text(
+            "\n".join(" ".join(line) for line in wrapped),
+            font_size,
+            theme.FG,
+            theme.FONT_BODY,
+            line_spacing=line_spacing,
+        )
+        # The greedy wrap measures words in isolation; Pango's kerning across a
+        # space can push a line a hair wider. Clamp so max_width is a guarantee.
+        utils.fit_text(self.text_mob, max_width - 2 * theme.PAD_MD)
+
+        # Text drops whitespace, so glyph i of the mobject is glyph i of the
+        # concatenated words. Map each word to its glyph slice.
+        self.words = VGroup()
+        cursor = 0
+        glyphs = list(self.text_mob)
+        for word in word_list:
+            nxt = min(cursor + len(word), len(glyphs))
+            self.words.add(VGroup(*glyphs[cursor:nxt]))
+            cursor = nxt
+
+        self.lines = VGroup()
+        cursor = 0
+        for line in wrapped:
+            span = sum(len(w) for w in line)
+            nxt = min(cursor + span, len(glyphs))
+            self.lines.add(VGroup(*glyphs[cursor:nxt]))
+            cursor = nxt
+
+        self.body = utils.panel(
+            width=self.text_mob.width + 2 * theme.PAD_MD,
+            height=self.text_mob.height + 2 * theme.PAD_MD,
+            fill=theme.SURFACE,
+            stroke=accent,
+            stroke_width=theme.STROKE_NORMAL,
+        )
+        self.text_mob.move_to(self.body.get_center())
+        self.add(self.body, self.text_mob)
+
+        self.revealed = 0
+        self.text_mob.set_opacity(0.0)
+
+    @staticmethod
+    def _wrap(words, inner_width: float, font_size: float):
+        """Greedy word wrap, measuring real rendered widths."""
+        lines, current, used = [], [], 0.0
+        space = utils._text("x x", font_size, theme.FG, theme.FONT_BODY).width
+        space -= 2 * utils._text("x", font_size, theme.FG, theme.FONT_BODY).width
+        space = max(space, 0.05)
+        for word in words:
+            width = utils._text(word, font_size, theme.FG, theme.FONT_BODY).width
+            advance = width + (space if current else 0.0)
+            if current and used + advance > inner_width:
+                lines.append(current)
+                current, used, advance = [], 0.0, width
+            current.append(word)
+            used += advance
+        if current:
+            lines.append(current)
+        return lines
+
+    @property
+    def word_count(self) -> int:
+        return len(self.words)
+
+    def reveal(self, count: int) -> "StreamingBubble":
+        """Show the first ``count`` words. Clamped to the available range."""
+        count = max(0, min(count, self.word_count))
+        for i, word in enumerate(self.words):
+            word.set_opacity(1.0 if i < count else 0.0)
+        self.revealed = count
+        return self
+
+    def reveal_next(self, step: int = 1) -> "StreamingBubble":
+        return self.reveal(self.revealed + step)
+
+
 class ChatWindow(VGroup):
     """A framed chat surface: title bar, message area, composer.
 
@@ -285,4 +399,10 @@ class ChatWindow(VGroup):
         return VGroup(*[self.add_message(text, sender) for text, sender in items])
 
 
-__all__ = ["ChatWindow", "ChatBubble", "ChatInput", "TypingIndicator"]
+__all__ = [
+    "ChatWindow",
+    "ChatBubble",
+    "ChatInput",
+    "StreamingBubble",
+    "TypingIndicator",
+]

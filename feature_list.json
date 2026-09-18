@@ -1,7 +1,12 @@
 {
   "scope": "Repo-level harness and /lib work. Per-video work lives in videos/<slug>/feature_list.json.",
-  "note": "Status is the only field a steady-state session flips. Never reword or delete acceptance criteria to make an item pass — that is a correctness bug, not a shortcut.",
-  "statuses": ["planned", "in_progress", "failing", "passing"],
+  "note": "Status is the only field a steady-state session flips. Never reword or delete acceptance criteria to make an item pass \u2014 that is a correctness bug, not a shortcut.",
+  "statuses": [
+    "planned",
+    "in_progress",
+    "failing",
+    "passing"
+  ],
   "features": [
     {
       "id": "harness-core",
@@ -85,11 +90,39 @@
       ]
     },
     {
-      "id": "harness-hook-bash-false-positive",
+      "id": "lib-factory-and-camera",
       "priority": 8,
+      "title": "factory + camera: the continuous-shot vocabulary",
+      "status": "passing",
+      "acceptance": [
+        "Station fits oversized content into its bay and never scales it up",
+        "Station marquees are clamped to the bay width and sit below the bay, so neighbours cannot collide",
+        "PipelineBox encloses its contents with enough pad to keep its title out of a tight shot",
+        "Conveyor exposes one path a payload can traverse across corners in a single animation",
+        "camera.focus and camera.frame_all return built animations so moves can run with the action",
+        "frame_all fits both axes, not just width",
+        "Structural tests plus station, station_marquee, pipeline_box and conveyor baselines"
+      ]
+    },
+    {
+      "id": "lib-streaming-bubble",
+      "priority": 9,
+      "title": "chat_ui.StreamingBubble: text that arrives a word at a time",
+      "status": "passing",
+      "acceptance": [
+        "Laid out at final size up front so it never reflows mid-stream",
+        "All words on a shared baseline, with descenders still dipping below it",
+        "reveal() is clamped and monotonic in practice",
+        "Width never exceeds max_width",
+        "Structural tests plus a streaming_bubble baseline"
+      ]
+    },
+    {
+      "id": "harness-hook-bash-false-positive",
+      "priority": 10,
       "title": "Protected-path hook: narrow the Bash matcher to actual writes",
       "status": "failing",
-      "blocked_on": "human — the hook protects itself, so an agent cannot fix it",
+      "blocked_on": "human \u2014 the hook protects itself, so an agent cannot fix it",
       "acceptance": [
         "A Bash command that merely mentions a protected path (e.g. running the Evaluator with 2>&1, or a heredoc documenting it) is allowed",
         "A redirect whose target is a protected path is still blocked",
@@ -99,10 +132,10 @@
     },
     {
       "id": "harness-ci",
-      "priority": 9,
+      "priority": 11,
       "title": "CI: run the Evaluator from the base branch on every pull request",
       "status": "planned",
-      "blocked_on": "human — .github/workflows/ is a protected path",
+      "blocked_on": "human \u2014 .github/workflows/ is a protected path",
       "acceptance": [
         "A workflow installs system deps, runs init.sh and runs scripts/evaluate.py",
         "The workflow file is owned by CODEOWNERS, not editable by an agent session",

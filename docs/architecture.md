@@ -4,19 +4,39 @@
 
 ```
 videos/<slug>/scenes/   narrative: what happens, in what order, with what words
+   |-- <name>_set.py      ... where everything is
+   `-- scene_<name>.py    ... when the camera goes there
         │ imports
         ▼
 lib/components/         vocabulary: what things look like
+lib/camera.py           grammar: how the camera moves between them
         │ imports
         ▼
 lib/theme.py            identity: colour, type, spacing, timing
 ```
+
+Splitting the set from the choreography is the one structural rule that matters
+for continuous shots. A 30-second uncut take is ~70 animations whose timings all
+depend on each other; if the geometry is interleaved with them, re-timing a beat
+means re-deriving positions, and nobody does that twice.
 
 The dependency direction is one-way. `/lib` must never import from `/videos` — a
 component that knows about a specific video is not a component, it is a scene
 fragment in the wrong folder. Nothing enforces this mechanically yet; it is one
 import-boundary lint rule away if it is ever violated, and that is the right
 moment to add one.
+
+## Why a video is one scene, not eight
+
+The first cut of `chatgpt_message_journey` was eight `Scene` classes stitched
+together by ffmpeg. It worked and it was wrong: every cut threw away the viewer's
+sense of place, so the pipeline read as eight unrelated diagrams rather than one
+machine. Rebuilt as a single `MovingCameraScene` over a persistent set, the final
+pull-back does the explaining — the viewer recognises the whole plant because
+they have already stood inside every part of it.
+
+Concatenation is still supported (`render.py` handles multiple scenes) and is
+right for a video that genuinely has chapters. It is not the default.
 
 ## Why theme.py is a single module
 

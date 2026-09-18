@@ -1,98 +1,70 @@
 # What happens when you send a message to ChatGPT — script
 
-Target runtime ~6:30. One section per scene. Narration is the source of truth
-for pacing; the duration budget is what `render.py` output should land near.
+**30 seconds, one continuous shot, no cuts.**
 
----
+The whole pipeline is laid out once in world space (see `scenes/factory_set.py`)
+and the camera flies through it: close on each machine in turn, then all the way
+out at the end to show the plant running as one circuit. The viewer recognises
+the wide shot because they have already stood inside every part of it.
 
-## 1. User Input — "You type a sentence" (0:00–0:45, budget 45s)
+## The set
 
-**Narration.** You open ChatGPT, type a question, and hit enter. On your screen
-that's one action. Underneath, it's the start of a journey through a few hundred
-billion numbers. Let's follow a single message all the way through.
+```
+ [chat −22] → [web server −13] → ┌ THE MODEL ─────────────────────────┐
+                                 │ tokenize  embed  transformer  sample│
+                                 │   −4       +3       +10       +17   │
+                                 └─────────────────────────────────┬───┘
+   ▲                                                               │
+   └──────────────── return rail (y = −7) ─────────────────────────┘
+```
 
-**Beats.**
-1. Empty chat window fades in, composer focused, caret blinking.
-2. The question types itself in: *"How does ChatGPT work?"*
-3. Enter — the text lifts out of the composer and becomes a user bubble.
-4. The assistant side stays empty; a typing indicator appears and holds.
-5. Caption: *"Everything after this point happens in about two seconds."*
+Roughly 48 units wide, so the final pull-back is about 3.3×.
 
-**Reuses:** `chat_ui.ChatWindow`, `ChatInput`, `TypingIndicator`.
+## The through-line
 
----
+One payload, never destroyed, only transformed. This is what makes it read as a
+factory rather than a slideshow:
 
-## 2. Network Request — "It leaves your device" (0:45–1:25, budget 40s)
+> typed text → packet → token chips → vector columns → activation in the stack →
+> probability bars → one token → packet → a word in the reply
 
-**Narration.** The text doesn't stay on your machine. It's wrapped in an HTTPS
-request and sent to a datacentre, where a GPU is waiting.
+## Beat sheet
 
-**Beats.** Chat window shrinks to the left; `RequestPath` appears; packets fly
-client → internet → server; the server rack lights up.
+| Timecode | Beat | Shot |
+|---|---|---|
+| 0.0–3.0 | The question types itself in and is sent; the message becomes a packet | tight on chat, w=12 |
+| 3.0–6.2 | Packet crosses the wire, the web server lights up, and hands off to the model; camera dives in | pan + zoom out to w=38, then dive |
+| 6.2–10.0 | **Tokenize** — the sentence arrives and shatters into chips with ids | tight, w=12 |
+| 10.0–13.6 | **Embed** — each chip flies across and becomes a column of numbers | pan right |
+| 13.6–17.8 | **Transformer** — activation climbs 96 layers, a prediction vector drops out | pan right |
+| 17.8–21.2 | **Sample** — a score for every word it knows; one is picked | pan right |
+| 21.2–24.6 | The token rides the return rail home and lands as a word | pull back, then tight on chat |
+| 24.6–29.3 | **The whole plant.** Marquees light up, three more tokens run the full circuit, the answer completes | w≈50 |
 
-**Reuses:** `network.RequestPath`, `PacketStream`, `ServerRack`.
+## Narration (if a voice-over pass happens)
 
----
+> You type a question and hit send. It leaves your machine as an ordinary web
+> request — and lands in a building full of GPUs.
+>
+> First your sentence is cut into tokens. Not words: pieces the model has seen
+> before. Each one becomes a long list of numbers — a direction in a space where
+> similar meanings point the same way.
+>
+> Then it climbs the stack. Ninety-six layers, and in every one, each token gets
+> to look at every token before it.
+>
+> Out the top comes a score for every word the model knows. One gets picked.
+>
+> That single token travels all the way back to your screen. And then the whole
+> thing runs again, for the next one — which is why the answer arrives a word at
+> a time.
 
-## 3. Tokenization — "Your sentence is chopped up" (1:25–2:20, budget 55s)
+## Notes for editing
 
-**Narration.** The model never sees your sentence. Before anything else, it's
-split into tokens — chunks of characters that the model has a fixed vocabulary
-for. Notice the spaces: a leading space belongs to the token after it. And
-notice that a long or unusual word gets broken into pieces.
-
-**Beats.**
-1. The sentence appears as plain text, centred.
-2. Split markers slide in between tokens; the text separates into chips.
-3. The space glyph is called out on one chip.
-4. A long word is shown breaking into two chips.
-5. Each chip flips to reveal its integer token id.
-6. Caption: *"The model only ever sees this list of integers."*
-
-**Reuses:** `tokens.TokenStrip`, `TokenChip`, `simple_tokenize`.
-
----
-
-## 4. Embedding — "Integers become directions" (2:20–3:05, budget 45s)
-
-Each token id indexes a row in an embedding table: a long list of numbers. Similar
-meanings end up pointing in similar directions.
-
-**Reuses:** `vectors.VectorColumn`, `EmbeddingGrid`, `SemanticSpace`.
-
----
-
-## 5. Transformer Pass — "96 layers of mixing" (3:05–4:15, budget 70s)
-
-Attention lets every token look at every earlier token; the stack refines the
-representation layer by layer.
-
-**Reuses:** `transformer.TransformerStack`, `AttentionLines`, `AttentionMatrix`,
-`ResidualStream`.
-
----
-
-## 6. Sampling — "A probability over every word" (4:15–5:05, budget 50s)
-
-The final layer produces a score for every token in the vocabulary. Softmax turns
-those into probabilities; temperature decides how adventurous the pick is.
-
-**Reuses:** `probability.ProbabilityChart`, `softmax`.
-
----
-
-## 7. Token Streaming — "One token at a time" (5:05–5:55, budget 50s)
-
-The chosen token is appended to the input and the whole thing runs again. That's
-why the answer arrives word by word.
-
-**Reuses:** `tokens.TokenStrip`, `network.PacketStream`, `chat_ui.ChatBubble`.
-
----
-
-## 8. Response Rendered — "Back where you started" (5:55–6:30, budget 35s)
-
-The stream lands back in the chat window as a finished answer. Pull back to show
-the whole pipeline at once.
-
-**Reuses:** `chat_ui.ChatWindow`, plus miniatures of every earlier component.
+- Pacing is carried by `run_time` values in `scenes/scene_factory.py`, grouped by
+  beat with the target timecodes in comments. Changing one means re-balancing
+  its neighbours.
+- `W_TIGHT = 12.0` is a floor, not a preference: at 16:9 anything smaller crops
+  the bottom of a 5.2-tall station bay and its caption.
+- Station marquees sit *below* their bays and are clamped to the bay width, so
+  they cannot collide with each other or with the box title in the wide shot.
