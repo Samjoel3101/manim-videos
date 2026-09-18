@@ -162,3 +162,33 @@ def test_station_without_an_icon_still_works():
     from lib.components.factory import Station
 
     assert Station("Plain").icon is None
+
+
+def test_glyph_fades_without_filling_its_outlines():
+    """The bug this exists for: an icon that fades in as a solid blob.
+
+    Lucide icons are stroked with the fill cleared. A blanket ``set_opacity``
+    raises fill opacity too, so a cross-fade that brings an icon up to 1.0
+    renders a filled silhouette instead of an outline.
+    """
+    glyph = Glyph("grid-3x3", color=theme.EMBED, height=1.0)
+    glyph.set_opacity(0.0)
+    glyph.fade_to_opacity(1.0)
+
+    outlines = [p for p in glyph.parts if not getattr(p, "_is_indicator_dot", False)]
+    assert outlines, "grid-3x3 is an outline icon"
+    for part in outlines:
+        assert part.get_stroke_opacity() == pytest.approx(1.0)
+        assert part.get_fill_opacity() == pytest.approx(0.0), "outline must stay hollow"
+
+
+def test_glyph_fade_takes_indicator_dots_with_it():
+    """Dots carry their colour in the fill, so they must fade on fill."""
+    glyph = Glyph("server", color=theme.NETWORK, height=1.0)
+    dots = [p for p in glyph.parts if getattr(p, "_is_indicator_dot", False)]
+    assert dots, "the server icon's status lights are indicator dots"
+
+    glyph.fade_to_opacity(0.0)
+    assert all(d.get_fill_opacity() == pytest.approx(0.0) for d in dots)
+    glyph.fade_to_opacity(1.0)
+    assert all(d.get_fill_opacity() == pytest.approx(1.0) for d in dots)

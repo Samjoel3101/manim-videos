@@ -92,6 +92,29 @@ class Glyph(VGroup):
         dot._is_indicator_dot = True
         return dot
 
+    def fade_to_opacity(self, opacity: float) -> "Glyph":
+        """Fade the icon in or out **without filling in its outlines**.
+
+        Lucide icons are stroked paths with the fill cleared, so the ordinary
+        blanket ``set_opacity`` — which raises fill opacity as well as stroke —
+        turns a hollow glyph into a solid blob. ``FadeIn`` gets away with it
+        because it interpolates *back to* the authored state; anything that
+        sets an absolute opacity, such as a cross-fade between two labels,
+        does not. Use this instead whenever an icon's visibility is animated:
+        ``glyph.animate.fade_to_opacity(1.0)``.
+
+        Indicator dots are genuinely filled (see :data:`DEGENERATE_LENGTH`), so
+        they fade on fill while everything else fades on stroke.
+        """
+        for sub in self.parts:
+            if getattr(sub, "_is_indicator_dot", False):
+                sub.set_fill(self.accent, opacity=opacity)
+                sub.set_stroke(width=0)
+            else:
+                sub.set_stroke(opacity=opacity)
+                sub.set_fill(opacity=0)
+        return self
+
     def recolor(self, color) -> "Glyph":
         self.accent = color
         for sub in self.parts:

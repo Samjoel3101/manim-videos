@@ -41,11 +41,18 @@ Two consequences of the shape, both deliberate:
   shrinking into it. Fixed-size type is what made an earlier 3.6x cut
   illegible — not the zoom itself.
 
-Each bay carries ONE title, always visible, sized for a shot midway between the
-close-up and the pull-back. Two labels per bay — a small one for the close-up
-and a large one revealed at the end — was tried and removed: they overlapped,
-and the opacity animation that swapped them fought the `arrive`/`settle` scaling
-applied to the same group, leaving the labels dimmed.
+Each bay carries two names and shows exactly one of them. The close-up header
+(icon, title, subtitle) is sized for SHOT_TIGHT and lives in the bay's left
+third; the pull-back `wide_label` is sized for SHOT_WIDE and fills the bay. The
+pull-back cross-fades one for the other, so neither shot pays for the other's
+needs. An earlier cut used a single title sized midway between the two: it read
+at neither distance well, and at the close-up it and its subtitle took 58% of
+the bay, leaving the content the beat is about squeezed into the remainder.
+
+The earlier *failed* attempt at two labels is a different thing: both were shown
+at once, and the opacity animation that swapped them fought an `arrive`/`settle`
+scale applied to the same group. The scaling is gone, and the swap is a
+cross-fade in which only one label is ever lit.
 """
 
 from __future__ import annotations
@@ -62,14 +69,17 @@ from lib.components.glyph import IconTile
 #: The close-up every station gets. Bays are wide and short, so this is
 #: narrower than a square-bay layout would need.
 SHOT_TIGHT = 13.6
-#: Bay titles are sized for this, deliberately between the close-up and the
-#: pull-back, so one label reads at both instead of needing two. Pushed well
-#: past the readability floor because the floor is about glyph HEIGHT, and a
-#: thin stem on a dark bay turns grey before it turns small.
-SHOT_LABEL = 26.0
-#: The final pull-back. Marquees and the box title are sized against this, and
-#: `validate()` fails if the real figure drifts away from it.
-SHOT_WIDE = 48.5
+#: Bay titles are sized for the close-up and nothing else. A single label sized
+#: for a shot midway to the pull-back was tried and is what made the close-ups
+#: unusable: at SHOT_LABEL=26 the title and its subtitle ate 58% of a 9.6 bay
+#: and the content — the chips, the vectors, the chart the beat is actually
+#: about — was squeezed into 2.5 units and rendered as confetti. The pull-back
+#: now gets its own, bigger label per bay (``wide_label``), cross-faded in,
+#: which is what the two shots each want rather than a compromise neither does.
+
+#: The final pull-back. Wide labels and the box title are sized against this,
+#: and `validate()` fails if the real figure drifts away from it.
+SHOT_WIDE = 55.0
 
 # --- world anchors ---------------------------------------------------------
 COLUMN_X = 0.0
@@ -77,10 +87,18 @@ COLUMN_X = 0.0
 STATION_W, STATION_H = 9.6, 2.4
 STATION_GAP = 0.75
 
-CHAT_H = 3.8
+#: The chat has to hold a four-line reply *inside* its frame and still be worth
+#: looking at from the final pull-back, where it is a fifth of the frame width.
+#: Sized small, the reply either overflowed the window — drawing itself across
+#: the composer and the web server below — or scrolled away entirely.
+#: Width matches the bays, so the chat reads as the top of the same column.
+CHAT_W = 9.6
+CHAT_H = 7.0
 SERVER_SIZE = 2.2
 #: Vertical breathing room between the chat, the server and the machine.
-STACK_GAP = 1.0
+#: Measured tile-to-caption, so the rails between them have to fit in what is
+#: left once the server's own caption has taken its share — hence the slack.
+STACK_GAP = 1.9
 
 #: How far out from the box the climb home runs.
 RETURN_MARGIN = 1.6
@@ -102,12 +120,14 @@ class FactorySet(VGroup):
                 accent=accent,
                 icon=icon,
                 header_side="left",
-                # ONE label, always visible, sized for a shot between the
-                # close-up and the pull-back. Revealing a second, larger label
-                # at the pull-back meant two labels in one bay and an opacity
-                # dance that dimmed them; a single compromise size reads at both
-                # distances and cannot get out of sync with itself.
-                shot_width=SHOT_LABEL,
+                # Two labels, but never both visible: the close-up header is
+                # sized for SHOT_TIGHT and cross-faded out at the pull-back for
+                # a `wide_label` sized for SHOT_WIDE. They occupy the same bay,
+                # so this is a swap, not two labels competing for the space —
+                # which is what sank the earlier attempt. One compromise size
+                # for both shots is what starved the slot.
+                shot_width=SHOT_TIGHT,
+                wide_label=title,
                 wide_width=SHOT_WIDE,
             )
 
@@ -145,6 +165,10 @@ class FactorySet(VGroup):
             # names the machine, it does not headline the film. A caption sized
             # for the whole frame collided with the server sitting above it.
             title_role="heading",
+            # Down the empty left margin, not across the top: the rail comes
+            # down the centre of the column and has to reach the box. The right
+            # margin already carries the return label, so this balances it.
+            title_side="side",
             wide_width=SHOT_WIDE,
         )
         box_top = float(self.llm.frame.get_top()[1])
@@ -165,7 +189,7 @@ class FactorySet(VGroup):
             np.array([COLUMN_X, server_y, 0.0]) - self.server.tile.get_center()
         )
 
-        self.chat = ChatWindow(width=6.0, height=CHAT_H, title="ChatGPT")
+        self.chat = ChatWindow(width=CHAT_W, height=CHAT_H, title="ChatGPT")
         chat_y = self.server.tile.get_top()[1] + STACK_GAP + CHAT_H / 2
         self.chat.move_to(np.array([COLUMN_X, chat_y, 0.0]))
 
@@ -177,10 +201,19 @@ class FactorySet(VGroup):
             ],
             chevrons=1,
         )
+        # Runs all the way to the box. An earlier version stopped above the box
+        # caption to avoid drawing through "THE MODEL", and since that caption
+        # is a wide-shot label that stays dark through every close-up, what the
+        # viewer actually saw was an arrow ending in empty space — the machine
+        # it feeds looked unconnected. The caption moved to the box's top-left
+        # corner instead (`title_side="left"`), which frees the midline.
         self.rail_server_to_model = Conveyor(
             [
-                self.server.tile.get_bottom() + DOWN * 0.25,
-                np.array([COLUMN_X, box_top, 0.0]),
+                # From below the server's CAPTION, not its tile: the caption
+                # hangs under the tile, so a rail started at the tile begins
+                # behind the words.
+                self.server.get_bottom() + DOWN * 0.25,
+                np.array([COLUMN_X, float(self.llm.frame.get_top()[1]), 0.0]),
             ],
             chevrons=1,
         )
@@ -395,5 +428,13 @@ class FactorySet(VGroup):
         return [self.server, *self.stations]
 
     def reveal_labels(self, opacity: float = 1.0):
-        """Animations bringing up every wide-shot label for the pull-back."""
-        return [self.wide_labels.animate.set_opacity(opacity)]
+        """Animations bringing up every wide-shot label for the pull-back.
+
+        Includes each bay's own swap: the close-up header fades out as the
+        wide-shot label fades in, so the bay carries exactly one name at any
+        distance rather than a small one nobody can read under a large one.
+        """
+        anims = [self.wide_labels.animate.set_opacity(opacity)]
+        for st in self.stations:
+            anims.extend(st.reveal_wide(opacity))
+        return anims
