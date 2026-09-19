@@ -17,10 +17,12 @@ from manim import Mobject, VGroup
 
 from lib import effects, theme
 from lib.components.chat_ui import ChatWindow, StreamingBubble, TypingIndicator
+from lib.components.checks import CheckList
 from lib.components.factory import Conveyor, PipelineBox, Station
 from lib.components.glyph import Glyph, IconTile
 from lib.components.network import RequestPath, ServerRack
 from lib.components.probability import ProbabilityChart
+from lib.components.stacked import SegmentedBar
 from lib.components.tokens import TokenStrip
 from lib.components.transformer import AttentionMatrix, TransformerStack
 from lib.components.vectors import EmbeddingGrid, VectorColumn, stable_vector
@@ -149,6 +151,63 @@ def _streaming_bubble():
     return bubble.scale(1.8)
 
 
+def _check_list():
+    """A half-ticked list: the state the viewer actually sees mid-beat.
+
+    Guards the three reserved columns and, just as importantly, that the tick
+    is drawn as an outline mark on a filled disc rather than as a blob — the
+    fill-vs-stroke failure would show up here as a solid marker.
+    """
+    checks = CheckList(
+        ["WAF", ("bot score", "0.02"), ("rate limit", "12 / 60")],
+        width=3.4,
+        frame_width=13.6,
+    )
+    checks[0].mark_pass()
+    checks[1].mark_pass()
+    return checks.scale(2.4)
+
+
+def _segmented_bar_legend():
+    """The orchestrator's prompt bar. The 7-token sliver must be visible."""
+    return SegmentedBar(
+        {
+            "system prompt": 2400,
+            "tool definitions": 1150,
+            "memory + prefs": 380,
+            "your message": 7,
+        },
+        length=5.0,
+        thickness=0.6,
+        labels="legend",
+        min_segment=0.035,
+        colors=[theme.NETWORK, theme.ATTENTION, theme.EMBED, theme.USER],
+        frame_width=13.6,
+        # Bar plus legend is ~9.8 units wide; 1.5x overflowed a 14-unit frame
+        # and cut the values off the right-hand side.
+    ).scale(1.15)
+
+
+def _segmented_bar_inline():
+    """The KV-cache bar, emphasised. Guards the inline-label width rule: the
+    narrow "new tail" segment gets no label of its own, by design."""
+    bar = SegmentedBar(
+        {"cached prefix": 3900, "new tail": 37},
+        length=6.0,
+        thickness=0.6,
+        labels="inline",
+        min_segment=0.05,
+        # Explicit: below INLINE_MIN_FRACTION, so "new tail" is drawn without a
+        # label. That is precisely what this case guards, and SegmentedBar now
+        # makes a caller say so rather than discovering it in a render.
+        allow_unlabelled_segments=True,
+        colors=[theme.FG_FAINT, theme.TOKEN],
+        frame_width=13.6,
+    )
+    bar.emphasise("new tail")
+    return bar.scale(1.6)
+
+
 #: name -> factory. Names become a JSON baseline of the same name.
 CASES: dict[str, Callable[[], Mobject]] = {
     "chat_window": _chat_window,
@@ -171,4 +230,7 @@ CASES: dict[str, Callable[[], Mobject]] = {
     "glow": _glow,
     "station_with_icon": _station_with_icon,
     "station_wide_bar": _station_wide_bar,
+    "check_list": _check_list,
+    "segmented_bar_legend": _segmented_bar_legend,
+    "segmented_bar_inline": _segmented_bar_inline,
 }

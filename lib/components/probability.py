@@ -40,11 +40,23 @@ class ProbabilityBar(VGroup):
         label_width: float = 1.3,
         color=None,
         show_value: bool = True,
+        value_format: str = "{:.2f}",
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         self.value = value
         self.accent = color or theme.PROB
+        # A bar is "label column + track + fill + number", and that is also what
+        # a quota meter or a batch-utilisation meter is — the only difference is
+        # how the number reads. So the format is a parameter rather than a
+        # second class: `value_format="{:.0%}"` turns this into a percentage
+        # meter without a `gauges.py` that would duplicate the column discipline
+        # below and then drift from it.
+        #
+        # The default is byte-identical to the f-string it replaced, so every
+        # existing baseline stays valid. That is asserted in
+        # tests/test_components_structure.py rather than merely intended.
+        self.value_format = value_format
 
         self.label_mob = utils._text(label, theme.SIZE_CAPTION, theme.FG, theme.FONT_MONO)
         utils.fit_text(self.label_mob, label_width)
@@ -83,19 +95,35 @@ class ProbabilityBar(VGroup):
         self.value_mob = None
         if show_value:
             self.value_mob = utils._text(
-                f"{value:.2f}", theme.SIZE_MICRO, theme.FG_MUTED, theme.FONT_MONO
+                self.value_format.format(value),
+                theme.SIZE_MICRO,
+                theme.FG_MUTED,
+                theme.FONT_MONO,
             ).next_to(self.track, RIGHT, buff=theme.PAD_SM)
             self.add(self.value_mob)
 
     def set_value(self, value: float, *, max_value: float = 1.0) -> "ProbabilityBar":
-        """Resize the bar in place (use inside ``.animate`` for a smooth change)."""
+        """Resize the bar in place.
+
+        ⚠ This REPLACES ``value_mob``, so it changes the submobject list. Manim
+        interpolates ``.animate`` by walking two matching submobject trees, and
+        a list that changes length mid-flight is what produces
+        ``zip() argument 2 is longer than argument 1`` (session 1 hit the same
+        thing on ``ChatInput.clear``). Call it directly, or — for a meter that
+        has to move smoothly — animate ``bar.bar.stretch_to_fit_width(...)`` and
+        swap the number in a separate step. ``show_value=False`` makes
+        ``.animate.set_value`` safe, because then there is no text to replace.
+        """
         target = self.track.width * min(1.0, value / max_value if max_value else 0.0)
         self.bar.stretch_to_fit_width(max(target, 1e-4))
         self.bar.align_to(self.track, LEFT)
         self.value = value
         if self.value_mob is not None:
             new = utils._text(
-                f"{value:.2f}", theme.SIZE_MICRO, theme.FG_MUTED, theme.FONT_MONO
+                self.value_format.format(value),
+                theme.SIZE_MICRO,
+                theme.FG_MUTED,
+                theme.FONT_MONO,
             ).move_to(self.value_mob)
             self.remove(self.value_mob)
             self.value_mob = new

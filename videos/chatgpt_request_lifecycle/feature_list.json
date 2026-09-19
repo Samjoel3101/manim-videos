@@ -1,0 +1,133 @@
+{
+  "video": "What happens when you hit send",
+  "slug": "chatgpt_request_lifecycle",
+  "note": "One continuous 45s shot through the whole request lifecycle - the extended cut of chatgpt_message_journey, which it deliberately does not modify. Status is the only field a steady-state session flips. Never reword or delete acceptance criteria to make something pass - that is a correctness bug, not a shortcut.",
+  "statuses": ["planned", "in_progress", "failing", "passing"],
+  "features": [
+    {
+      "id": "lifecycle-set",
+      "priority": 1,
+      "title": "The set: four bands, ten stations, one closed circuit",
+      "module": "scenes/lifecycle_set.py",
+      "status": "passing",
+      "acceptance": [
+        "Chat, bot check, edge, gateway and orchestrator run left to right along the top band; four bays inside one PipelineBox run down the right; stream and the after-response spur run along the bottom; the climb home closes the loop up the left margin",
+        "Every anchor the choreography needs (bay centres, slot centres, rail endpoints, glow halos) is addressable without recomputing geometry",
+        "circuit() yields a single path a payload can traverse in one animation, built by joining the DRAWN rails rather than node centres",
+        "validate() asserts the way home and the fan-out spur clear every machine, both as a path and as the chords a comet actually draws at the loop's real frame budget",
+        "validate() asserts band separation, the zoom budget against SHOT_WIDE, and that no wide-shot label falls below typography.MIN_READABLE",
+        "Total extent is about 56 x 29.7 units; wide_frame_width() is 57.9 against a declared SHOT_WIDE of 58.0, a pull-back of 4.07x"
+      ]
+    },
+    {
+      "id": "shot-client",
+      "priority": 2,
+      "scene_class": "TheLifecycle",
+      "title": "0-5s: type, build the request, prove you are human",
+      "status": "passing",
+      "acceptance": [
+        "The question is typed character by character, not faded in whole",
+        "Sent text becomes a right-aligned user bubble and the composer empties",
+        "An optimistic spinner appears before anything has left the machine",
+        "A RequestCard shows what 'send' actually posts - message, conversation, model, locale, accept - with its value column reserved, not measured",
+        "The card collapses INTO the packet rather than vanishing: the payload is transformed, never replaced",
+        "The card is removed before the pull-back and is not part of the set's `everything`, so a close-up-only prop cannot widen SHOT_WIDE"
+      ]
+    },
+    {
+      "id": "shot-edge-gateway",
+      "priority": 3,
+      "scene_class": "TheLifecycle",
+      "title": "5-13s: edge checks and gateway entitlements",
+      "status": "passing",
+      "acceptance": [
+        "The proof-of-work stamp attaches to the packet and travels with it; the trace id is added the same way at the gateway",
+        "Edge runs WAF / bot score / rate limit as a CheckList whose markers, labels and details each share one edge",
+        "Gateway ticks session and plan, then fills a tokens/min meter as a percentage - a ProbabilityBar with value_format, not a new component",
+        "Each bay lights on arrival and drops to a resting glow as the camera leaves",
+        "Camera and packet move together; the shot never stops to wait"
+      ]
+    },
+    {
+      "id": "shot-orchestrator",
+      "priority": 4,
+      "scene_class": "TheLifecycle",
+      "title": "13-19s: the prompt is assembled around your message",
+      "status": "passing",
+      "acceptance": [
+        "Conversation, memory and files arrive as icon chips before the prompt is built",
+        "The prompt assembles as a SegmentedBar, one segment at a time, with the true token counts in the legend",
+        "The 7-token 'your message' segment is VISIBLE despite being 0.18% of the bar - the drawn slice is floored, the printed value is not",
+        "A caption states both the ratio and why there is no history segment",
+        "Routing and input-classifier badges land before the camera descends"
+      ]
+    },
+    {
+      "id": "shot-model",
+      "priority": 5,
+      "scene_class": "TheLifecycle",
+      "title": "19-35s: tokenize, prefill, decode, sample",
+      "status": "passing",
+      "acceptance": [
+        "The chat template is shown as text before the line shatters into id chips, and the two never share the slot at readable opacity",
+        "Prefill shows a cached prefix against a short new tail, with the tail named in a caption because it is too narrow for an inline label",
+        "Decode shows an elided 96-layer stack pulsing plus a batch the viewer's request is one row of, with a batch-utilisation meter",
+        "Sampling shows a distribution, selects ' A', and the winner matches the first word of the reply",
+        "Nothing is clipped: every in-box bay and its caption fit the 13.6 tight shot, and captions sit in the 0.6 gap between bays without touching either"
+      ]
+    },
+    {
+      "id": "shot-stream",
+      "priority": 6,
+      "scene_class": "TheLifecycle",
+      "title": "35-41s: stream home, and the fan-out that follows",
+      "status": "passing",
+      "acceptance": [
+        "The winning token becomes a courier that rides the drawn rails out of the box to the stream bay, with a comet trail that stays on the rail",
+        "Stream ticks detokenise / output safety / tool call before the chunks leave",
+        "Four SSE chunks fly the return rail; the camera frames the rail AND the chat, so the window it is flying to is never cut by the frame edge",
+        "The reply bubble is sized for the finished sentence up front, placed by the chat window, and shows only its first words on arrival",
+        "The question and the reply are both visible in the window at once - the transcript must not scroll the question away",
+        "A grey copy spawns AT THE FORK and drops down the spur to the after bay, which is never on the reply's path"
+      ]
+    },
+    {
+      "id": "shot-pullback",
+      "priority": 7,
+      "scene_class": "TheLifecycle",
+      "title": "41-46s: the whole plant, running",
+      "status": "passing",
+      "acceptance": [
+        "Every part of the lifecycle is in frame at once",
+        "Each bay cross-fades its close-up header for a wide label; never both at the same time, and no icon renders as a filled blob",
+        "Wide labels are readable at the pull-back and none overlap",
+        "Two more tokens complete the full circuit, each node lighting as the token reaches it",
+        "The reply finishes filling in as they land",
+        "Runtime is within 45 +/- 1.5s"
+      ]
+    },
+    {
+      "id": "voiceover-pass",
+      "priority": 8,
+      "title": "Lock timing against a recorded voice-over",
+      "status": "planned",
+      "acceptance": [
+        "Narration in script.md is recorded and its per-beat timings measured",
+        "run_time values are adjusted so beats land on the narration, not the other way round",
+        "Total runtime stays within 10% of 45s"
+      ]
+    },
+    {
+      "id": "probability-typography",
+      "priority": 9,
+      "title": "Move lib/components/probability.py onto the type system",
+      "status": "planned",
+      "note": "probability.py predates lib/typography.py and still sizes its label and value text in absolute theme points, so at this film's shot widths an unscaled ProbabilityBar's value text lands just under typography.MIN_READABLE. The scene compensates by scaling the whole widget (TheLifecycle._meter), which is honest but is a workaround. The real fix is a frame_width argument, and it moves the probability_chart baseline - a /lib change that deserves its own session.",
+      "acceptance": [
+        "ProbabilityBar and ProbabilityChart take a frame_width and size their type against it",
+        "The default reproduces today's sizes so the probability_chart baseline is unchanged, or the baseline is re-approved after looking at the render",
+        "TheLifecycle._meter loses its scale argument"
+      ]
+    }
+  ]
+}
