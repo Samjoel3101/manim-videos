@@ -88,10 +88,20 @@ the kind of single-token error the snapshot gate cannot see.
 | 58.37–59.52 | Caption out, hold on the finished answer | W=58 |
 
 The `run_time`s sum to **59.52 s** against a 60 s cap; the measured `final` cut
-is 59.40 s. Manim rounds every play up to a whole frame and there are
-about ninety of them, which costs ~0.8 s at 60 fps and ~2.5 s at 15 fps — the
-draft profile, being 15 fps, always reads high. The measured figure for the
-shipped cut is in `scenes.json`.
+is **59.40 s** — 0.12 s *under* nominal, not over. Frame quantisation does not
+reliably pad this film, and planning as though it does is how you give away
+headroom you actually have.
+
+Measured, not assumed: `type_animation` issues one `wait(1/17)` per character,
+and at 60 fps each is truncated to 3 frames rather than rounded up, losing
+0.256 s over the opening; rounding on the other ~110 plays returns ~0.14 s. Net
+−0.117 s. The real timeline therefore runs ~0.24 s ahead of these timecodes
+through the middle of the film and ~0.12 s ahead by the end, which matters only
+if you are pulling a still at a named timecode.
+
+The `draft` profile at 15 fps quantises far more coarsely and reads high by a
+couple of seconds — **always measure the cap against a `final` render.** The
+measured figure for the shipped cut is in `scenes.json`.
 
 ### Token accounting — the rule that cannot be broken
 

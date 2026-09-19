@@ -9,8 +9,17 @@ Pacing is deliberate and tight: every `run_time` below is part of a 60s budget
 laid out in `../script.md`, and changing one means re-balancing its neighbours.
 The beats are grouped with their target timecodes in the `# ===` comments. Those
 are the arithmetic sum of the `run_time`s below — what a re-timer needs — and the
-shipped cut runs a little longer than their total, because Manim rounds every
-play up to a whole frame and there are about ninety of them. The measured figure
+shipped cut runs slightly **shorter** than their total: nominal 59.52s, measured
+59.40s, so −0.12s. Do not assume frame rounding pads the film; against a hard
+60s cap, assuming it does is how you talk yourself out of headroom you have.
+
+The direction is counter-intuitive, so the mechanism, measured rather than
+guessed: `ChatWindow.type_animation` issues one `scene.wait(1/17)` per character,
+and at 60fps Manim truncates each to 3 frames (0.050s) rather than rounding up to
+0.0588s. Twenty-nine of those lose 0.256s across the opening. Rounding on the
+other ~110 plays gives back ~0.14s, netting −0.117s. So the real timeline runs
+~0.24s ahead of nominal through the middle of the film and ~0.12s ahead by the
+end — worth knowing if you pull a still at a named timecode. The measured figure
 is in `scenes.json`.
 
 **The bare `self.wait(...)` calls are narration holds, and they are load-bearing
