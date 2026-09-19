@@ -1,6 +1,6 @@
 # What happens when you hit send — script
 
-**45 seconds, one continuous shot, no cuts.**
+**50 seconds, one continuous shot, no cuts.**
 
 The extended cut of `chatgpt_message_journey`. That film showed the model; this
 one shows the whole plant the model sits inside — client, edge, gateway,
@@ -37,8 +37,11 @@ client. Coordinates are bay centres; the full table lives in
                  AFTER  (−20,−16)
 ```
 
-World extent ≈ 55.9 × 29.7 units, so the final pull-back is about **4.1×**
-(`wide_frame_width / 14.22` = 57.89 / 14.22). That is further out than the previous film's 3.3×
+World extent ≈ 57.3 × 29.7 units, so the final pull-back is about **4.2×**
+(`wide_frame_width / 14.22` = 59.34 / 14.22). It grew from 57.89 when the
+loop-back rail's wide label was added in the box's right margin: 2.3% off
+`SHOT_WIDE`, well inside the 12% gate, so `SHOT_WIDE` stays at 58.0 rather than
+being nudged after every label. That is further out than the previous film's 3.3×
 and is affordable for exactly one reason: type is sized as a share of frame
 height (`lib/typography.py`), so every wide-shot label grows with the pull-back
 instead of shrinking into it. `SHOT_WIDE = 58.0`, and `LifecycleSet.validate()`
@@ -71,17 +74,38 @@ the kind of single-token error the snapshot gate cannot see.
 | 12.59–17.79 | **Orchestrator** — conversation + memory load; the prompt assembles as a stacked bar; your 7 tokens are a sliver; route + input classifier | pan right, W=16 |
 | 17.79–21.59 | **Tokenizer** — chat template markers, then the line shatters into id chips | dive to W=13.6 |
 | 21.59–25.44 | **Prefill · KV cache** — the prefix is already cached; only the tail is computed | pan down, W=13.6 |
-| 25.44–29.44 | **Decode loop** — 96 layers, one token per step, your row inside a running batch | pan down, W=13.6 |
-| 29.44–32.84 | **Sampling** — a score for every word it knows; temperature/top-p; one is picked | pan down, W=13.6 |
-| 32.84–36.74 | **Stream back** — detokenise, output safety, tool call?, SSE chunks fly home; first words land | W=16 → 45 → 14 |
-| 36.74–39.24 | **After** — a copy drops down the spur: persisted, billed, jobs queued | swing down-left, W=20 |
-| 39.24–44.34 | **The whole plant** — pull all the way out, wide labels cross-fade in, two more tokens run the circuit, the reply completes | W=58 |
+| 25.44–29.44 | **Decode loop** — 96 layers; *one token in, one pass out — the rest is cached*; your row inside a running batch | pan down, W=13.6 |
+| 29.44–34.54 | **Sampling** — a score for every word it knows; temperature/top-p; one is picked — and then **the loop**: a copy of the winning token rides the loop-back rail up to the KV cache, "and round again" | pan down, W=13.6 → 16 |
+| 34.54–38.44 | **Stream back** — detokenise, output safety, tool call?, SSE chunks fly home; the **first word** lands (one token, one word) | W=16 → 45 → 14 |
+| 38.44–40.39 | **After** — a copy drops down the spur: persisted, billed, jobs queued | swing down-left, W=20 |
+| 40.39–41.69 | **The whole plant** — pull all the way out, wide labels cross-fade in | W=58 |
+| 41.69–43.29 | **One lap, once** — a single runner crosses the plant: bot check, edge, gateway, orchestrator, tokenizer, out through the stream and home. Then the outside drops to a resting glow and never lights again. Caption: *the request crosses once* | W=58 |
+| 43.29–46.99 | **Four decode cycles** — the runner laps `decode_cycle()` INSIDE the box; each lap emits one token that flies the reply rail to the chat and reveals **exactly one** more word. Caption: *one token per pass* | W=58 |
+| 46.99–49.55 | **Acceleration** — six more cycles, each faster than the last, six more words. Caption: *≈60 tokens a second* | W=58 |
+| 49.55–50.25 | Caption out, hold on the finished answer | W=58 |
 
-The `run_time`s sum to **44.34 s** against a 45 s budget. The rendered cut is a
-little longer than that — Manim rounds every play up to a whole frame and there
-are about seventy of them, which costs ~0.8 s at 60 fps and ~1.9 s at 15 fps. The
-measured figure for the shipped `final` cut is in `scenes.json`; the draft
-profile, being 15 fps, always reads high.
+The `run_time`s sum to **50.25 s** against a 50 s budget (±1.5 s); the measured
+`final` cut is 50.12 s. Manim rounds every play up to a whole frame and there are
+about ninety of them, which costs ~0.8 s at 60 fps and ~2.5 s at 15 fps — the
+draft profile, being 15 fps, always reads high. The measured figure for the
+shipped cut is in `scenes.json`.
+
+### Token accounting — the rule that cannot be broken
+
+The reply is **eleven words**, so the film shows **eleven decode cycles**: one in
+close-up at the sampler beat (its word lands in the bubble at the end of the
+stream beat), four explicit ones at the pull-back, and six in the acceleration.
+`TheLifecycle.tokens_emitted` is the only thing that drives `answer.reveal`, it
+is incremented in exactly one place, and the beat ends with an assertion that it
+equals `answer.word_count`.
+
+This is a correctness fix, not a polish pass. The shipped cut before it ran the
+end-of-film runner twice around the WHOLE circuit, lighting all ten nodes on
+each pass — which asserts that every token you receive is re-scored at the edge,
+re-authenticated at the gateway and re-assembled by the orchestrator. It is not:
+prefill runs once, and every subsequent token is one decode step that reads the
+KV cache and appends to it. The same cut also revealed three words for the first
+token and four for each of two further "tokens": two tokens, eight words.
 
 Every beat method in `scenes/scene_lifecycle.py` carries its target timecode in a
 comment above it; changing one `run_time` means re-balancing its neighbours.
@@ -105,9 +129,16 @@ comment above it; changing one `run_time` means re-balancing its neighbours.
 > prefix is already in cache, so only the tail is computed. Then the decode loop:
 > one token per step, your request riding in a batch with strangers'.
 >
-> Every step produces a score for every word it knows. One gets picked, turned
-> back into text, checked, and pushed down the wire as it is written — which is
-> why the answer arrives a word at a time.
+> Every step produces a score for every word it knows. One gets picked — and it
+> goes two ways at once. It is turned back into text, checked, and pushed down
+> the wire, which is why the answer arrives a word at a time. And its keys and
+> values are appended to the cache, so the next step can read everything that
+> came before instead of recomputing it.
+>
+> That is the loop, and it is the whole shape of generation. The request crosses
+> the plant once. The answer is made by three bays talking to each other —
+> cache, decode, sample — going round about sixty times a second, one word
+> falling out of the machine each time. Nothing upstream is asked twice.
 >
 > And when it finishes, a copy goes somewhere else entirely: stored, counted,
 > billed, and handed to the jobs that title the chat and remember what you said.
@@ -128,9 +159,21 @@ comment above it; changing one `run_time` means re-balancing its neighbours.
 - `RequestCard` is a close-up-only prop: it is faded out at the end of beat 1
   because it would be litter in the pull-back, which is also why it is not part
   of `LifecycleSet.everything` and does not affect `SHOT_WIDE`.
-- The end-of-film loop's `run_time` lives in the **set** as
-  `LOOP_RUN_TIME`, because `validate()` budgets its chord-clearance check
-  against it. Change it in one place or the assertion silently stops matching
-  the shot it is supposed to be checking.
+- The end-of-film lap's `run_time` lives in the **set** as
+  `REQUEST_LAP_RUN_TIME` (and the emitted token's flight home as
+  `EMIT_RUN_TIME`), because `validate()` budgets its chord-clearance checks
+  against them. Change them in one place or the assertions silently stop
+  matching the shot they are supposed to be checking.
+- **Draw order is load-bearing inside the box.** `PipelineBox.frame` is an
+  opaque fill, so every rail that runs inside it — the descent, the rails between
+  bays, the way out, and the loop-back — must be added to the set *after*
+  `self.llm`. The first cut of the loop-back rail was added before it and
+  rendered as nothing at all: a runner lapping a path with no track under it,
+  and a green gate.
+- **The loop-back rail is drawn, not implied.** `LOOPBACK_X = 23.25` is the
+  midline of the box's 0.90-wide inner right margin, `decode_cycle()` is joined
+  from the drawn rails and must CLOSE (asserted), and the rail carries a
+  wide-shot label — "append K,V · next token" — in the margin outside the frame,
+  mirroring the box's own side title.
 - Motion blur stays off on every profile. That is recorded in `harness.json`
   with its reason; it is not an oversight.

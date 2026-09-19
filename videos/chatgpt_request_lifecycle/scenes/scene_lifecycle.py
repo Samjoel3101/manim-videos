@@ -5,7 +5,7 @@ it — out along the top band, down the right into the inference stack, back alo
 the bottom, and all the way out at the end so the viewer recognises the plant
 they have just walked through as a single closed circuit.
 
-Pacing is deliberate and tight: every `run_time` below is part of a 45s budget
+Pacing is deliberate and tight: every `run_time` below is part of a 50s budget
 laid out in `../script.md`, and changing one means re-balancing its neighbours.
 The beats are grouped with their target timecodes in the `# ===` comments. Those
 are the arithmetic sum of the `run_time`s below — what a re-timer needs — and the
@@ -68,10 +68,24 @@ from lib.components.transformer import TransformerStack
 # (no package context), while the Evaluator imports it as a package module.
 try:  # pragma: no cover - whichever branch runs, the other is unreachable
     from . import props
-    from .lifecycle_set import LOOP_RUN_TIME, SHOT_TIGHT, SHOT_TIGHT_OUTER, LifecycleSet
+    from .lifecycle_set import (
+        EMIT_RUN_TIME,
+        REQUEST_LAP_RUN_TIME,
+        SHOT_TIGHT,
+        SHOT_TIGHT_OUTER,
+        SHOT_WIDE,
+        LifecycleSet,
+    )
 except ImportError:  # pragma: no cover
     import props
-    from lifecycle_set import LOOP_RUN_TIME, SHOT_TIGHT, SHOT_TIGHT_OUTER, LifecycleSet
+    from lifecycle_set import (
+        EMIT_RUN_TIME,
+        REQUEST_LAP_RUN_TIME,
+        SHOT_TIGHT,
+        SHOT_TIGHT_OUTER,
+        SHOT_WIDE,
+        LifecycleSet,
+    )
 
 QUESTION = "What happens when I hit send?"
 #: Eleven words, and it starts with "A" — which is the token the sampler beat
@@ -107,6 +121,34 @@ W_TRAVEL = 45.0
 #: travelling down something rather than through a void.
 W_AFTER = 20.0
 
+#: Resting glow for the three loop bays while the pull-back's token loop runs.
+#: Brighter than `LifecycleSet.resting_glow` (0.16), which is what the rest of
+#: the plant drops to once the request has crossed it: the box has to read as
+#: the one thing still working, and at 0.16 the difference between "running the
+#: loop" and "done ten seconds ago" was not visible at the pull-back.
+LOOP_REST_GLOW = 0.5
+
+#: `(lap, emit)` seconds for the four cycles the viewer is meant to COUNT.
+#: Each pair is one decode step: lap the loop inside the box, then fly one token
+#: home and reveal exactly one word. The emit time is the set's EMIT_RUN_TIME
+#: because `validate()` budgets that flight's comet chords against it — the two
+#: must not drift.
+CYCLES_EXPLICIT = ((0.38, EMIT_RUN_TIME),) * 4
+
+#: And then it accelerates. Halving across six passes, which is what makes the
+#: ramp read as a machine speeding up rather than as the animation running out
+#: of time. Eleven words, eleven tokens: one from the sampler beat, four above,
+#: six here. Changing this list means changing the reply's length too — there is
+#: an assertion at the end of the beat that says so.
+CYCLES_FAST = (
+    (0.28, 0.28),
+    (0.24, 0.24),
+    (0.20, 0.20),
+    (0.17, 0.17),
+    (0.15, 0.15),
+    (0.13, 0.13),
+)
+
 
 class TheLifecycle(MovingCameraScene):
     def construct(self) -> None:
@@ -129,10 +171,10 @@ class TheLifecycle(MovingCameraScene):
         strip = self.beat_tokenize()   # 17.79 → 21.59
         self.beat_prefill(strip)       # 21.59 → 25.44
         self.beat_decode()             # 25.44 → 29.44
-        token = self.beat_sample()     # 29.44 → 32.84
-        self.beat_stream(token)        # 32.84 → 36.74
-        self.beat_after()              # 36.74 → 39.24
-        self.beat_pull_back()          # 39.24 → 44.34
+        token = self.beat_sample()     # 29.44 → 34.54
+        self.beat_stream(token)        # 34.54 → 38.44
+        self.beat_after()              # 38.44 → 40.39
+        self.beat_pull_back()          # 40.39 → 50.25
 
     # ==================================================== 0.00 → 4.59  client
     def beat_client(self) -> None:
@@ -656,8 +698,15 @@ class TheLifecycle(MovingCameraScene):
         # landed on top of each other and the caption read "one token per step —
         # your request rides in a b[atch 0%]". They are laid out as one row now,
         # which is also why the caption is short enough to leave the meter room.
+        # Names the mechanism the pull-back then shows at plant scale: a decode
+        # step takes ONE token, does ONE pass, emits ONE token, and everything
+        # before it is read out of the KV cache rather than recomputed. The
+        # caption this replaces — "you ride in a batch" — said something the
+        # batch lanes beside it and the `batch` meter under it already say
+        # twice, and said nothing about the cache, which is the reason the loop
+        # is cheap enough to run sixty times a second.
         note = self._note(
-            station, "one token per step — you ride in a batch",
+            station, "one token in, one pass out — the rest is cached",
             W_TIGHT, tight=True,
         )
         meter = self._meter("batch", "{:.0%}", theme.ATTENTION, scale=1.15)
@@ -680,7 +729,7 @@ class TheLifecycle(MovingCameraScene):
             rate_func=motion.EXIT,
         )
 
-    # =================================================== 29.44 → 32.84  sampling
+    # =================================================== 29.44 → 34.54  sampling
     def beat_sample(self):
         """A score for every word it knows. One gets picked."""
         s = self.set
@@ -734,14 +783,83 @@ class TheLifecycle(MovingCameraScene):
             run_time=0.4,
             rate_func=motion.SNAP,
         )
+
+        # -- the loop, shown where the viewer can see it happen ---------------
+        # This is where the film teaches the mechanism; the pull-back only has
+        # to recall it at plant scale. The sampled token does TWO things, and
+        # the beat shows both: it goes out to the reader (the courier, in
+        # beat_stream) and its keys and values go back into the cache, which is
+        # what the next decode step reads. So what rides the loop-back rail here
+        # is a COPY of the winning chip, not the chip itself.
+        #
+        # The plan for this session had a second token drop out of the loop here
+        # instead. That was dropped deliberately: the bubble does not exist yet
+        # at this point in the film, so a second token emitted here is a token
+        # the viewer can count and a word they cannot — the exact
+        # token/word arithmetic failure this session exists to remove. A copy
+        # joining the cache makes the same point and stays countable.
+        # A plain copy. `set_color` on a TokenStrip repaints the chip's fill as
+        # well as its border and the ids inside it come back as solid blocks —
+        # the same family of bug as set_opacity on a glow halo.
+        kv = winner.copy()
+        rail = s.rail_sample_to_cache.path
+        # On the path BEFORE the trail is attached — see beat_stream. The chip
+        # is sitting in the sampler's slot, and a comet attached there would
+        # draw one chord from the slot to the rail on its first frame.
+        kv.move_to(rail.get_start())
+        loop_shot = VGroup(s.prefill.bay, s.sampler.bay, s.rail_sample_to_cache)
         self.play(
-            s.glow_for(station).animate.set_stroke(opacity=s.resting_glow),
+            FadeIn(kv, scale=0.6),
+            # Widened from W_TIGHT so both ends of the loop-back rail are in
+            # frame at once: 5.4 units of rail plus two 2.1-tall bays needs 7.5
+            # of frame height, and W_TIGHT gives 7.64 with nothing to spare for
+            # the caption under the sampler. W_SERVICE gives 8.99.
+            # Shifted down 0.35 so the two-line caption under the sampler bay
+            # clears the bottom of the frame: at W_SERVICE the shot is 8.99
+            # tall against a 7.5-unit rail, and the caption eats the rest.
+            camera.focus(
+                self, loop_shot, width=W_SERVICE, shift=DOWN * 0.35, run_time=0.5
+            ),
+            run_time=0.5,
+            rate_func=motion.ENTER,
+        )
+        trail = effects.comet(kv, color=theme.TOKEN, width=7, dissipating_time=0.12)
+        self.add(trail, kv)
+        loop_note = self._note(
+            station,
+            "and round again",
+            W_SERVICE,
+            sub="its keys and values join the cache — nothing upstream is asked twice",
+            tight=True,
+        )
+        self.play(
+            MoveAlongPath(kv, rail, run_time=0.75),
+            s.glow_for(s.prefill).animate.set_stroke(opacity=1.0),
+            FadeIn(loop_note, shift=UP * theme.PAD_XS),
+            run_time=0.75,
+            rate_func=motion.MOVE,
+        )
+        self.remove(trail)
+        self.play(
+            Flash(kv, color=theme.EMBED, line_length=0.12),
+            FadeOut(kv, scale=0.5),
             run_time=0.3,
+            rate_func=motion.SNAP,
+        )
+        self.play(
+            FadeOut(loop_note),
+            s.glow_for(s.prefill).animate.set_stroke(opacity=s.resting_glow),
+            s.glow_for(station).animate.set_stroke(opacity=s.resting_glow),
+            # Back to the sampler before beat_stream, which starts its courier
+            # at the winning chip and would otherwise open on an empty frame
+            # five units above it.
+            camera.focus(self, station.bay, width=W_TIGHT, run_time=0.45),
+            run_time=0.45,
             rate_func=motion.EXIT,
         )
         return winner
 
-    # ================================================ 32.84 → 36.74  stream back
+    # ================================================ 34.54 → 38.44  stream back
     def beat_stream(self, token) -> None:
         """Detokenise, check, and push it down the wire as it is written."""
         s = self.set
@@ -849,13 +967,27 @@ class TheLifecycle(MovingCameraScene):
             run_time=0.45,
             rate_func=motion.ENTER,
         )
-        # Three words, not one: a bubble sized for eleven looks broken holding
-        # one.
+        # ONE word, because exactly one token has been sampled. This used to
+        # reveal three, defended by "a bubble sized for eleven looks broken
+        # holding one" — and that is how the film came to show two tokens
+        # produced while eight words arrived. A viewer of a careful explainer
+        # counts. The counter below is the single source of truth for the
+        # reveal from here to the end of the film: every later reveal is
+        # `self.tokens_emitted`, incremented once per decode cycle, never an
+        # expression like `3 + (i + 1) * words_per_pass`.
+        #
+        # The bubble does not sit on one word for long: the pull-back's first
+        # cycle lands the second word 2.9s later and the acceleration fills the
+        # rest, so the "looks broken" case the old comment worried about never
+        # happens.
+        self.tokens_emitted = 1
         self.play(
-            self.answer.animate.reveal(3), run_time=0.2, rate_func=motion.ENTER
+            self.answer.animate.reveal(self.tokens_emitted),
+            run_time=0.2,
+            rate_func=motion.ENTER,
         )
 
-    # ==================================================== 36.74 → 39.24  after
+    # ==================================================== 38.44 → 40.39  after
     def beat_after(self) -> None:
         """And a copy goes somewhere else entirely."""
         s = self.set
@@ -870,13 +1002,17 @@ class TheLifecycle(MovingCameraScene):
             copy_dot, color=theme.FG_MUTED, width=5, dissipating_time=0.12
         )
         self.add(trail, copy_dot)
+        # 0.85, down from 1.1. The loop beats at the end of the film grew by
+        # five seconds and something had to give; this epilogue is the right
+        # donor, because it is the one beat that is an aside rather than part
+        # of the mechanism. It is still a visible travel down a visible spur.
         self.play(
-            MoveAlongPath(copy_dot, fork, run_time=1.1),
+            MoveAlongPath(copy_dot, fork, run_time=0.85),
             camera.focus(
-                self, s.after.bay, width=W_AFTER, shift=LEFT * 2.0, run_time=1.1
+                self, s.after.bay, width=W_AFTER, shift=LEFT * 2.0, run_time=0.85
             ),
             s.glow_for(s.after).animate.set_stroke(opacity=1.0),
-            run_time=1.1,
+            run_time=0.85,
             rate_func=motion.MOVE,
         )
         self.remove(trail)
@@ -897,26 +1033,46 @@ class TheLifecycle(MovingCameraScene):
         self.play(
             FadeIn(checks, shift=UP * theme.PAD_XS),
             FadeOut(copy_dot, scale=0.4),
-            run_time=0.35,
+            run_time=0.3,
             rate_func=motion.ENTER,
         )
         self.play(
             LaggedStart(*checks.pass_all(), lag_ratio=0.35),
-            run_time=0.65,
+            run_time=0.5,
             rate_func=motion.ENTER,
         )
         self.play(
             FadeOut(checks),
             s.glow_for(s.after).animate.set_stroke(opacity=s.resting_glow),
-            run_time=0.4,
+            run_time=0.3,
             rate_func=motion.EXIT,
         )
 
-    # =============================================== 39.24 → 44.34  whole plant
+    # =============================================== 40.39 → 50.25  whole plant
     def beat_pull_back(self) -> None:
-        """All the way out. The viewer has stood inside every part of this."""
+        """All the way out — and then the asymmetry the whole film is about.
+
+        The plant is not a circle. The request crosses it ONCE: client, bot
+        check, edge, gateway, orchestrator, tokenizer, and then it is inside the
+        machine and it stays there. The answer is made by a tight loop between
+        three bays — cache, decode, sample — that runs once per token and leaves
+        one token at a time down a socket that is already open.
+
+        This beat used to lap `s.circuit()` twice with every one of the ten
+        nodes lighting on each pass, which asserts that every token you receive
+        is re-scored at the edge, re-authenticated at the gateway and
+        re-assembled by the orchestrator. It is not. One lap of the outside,
+        then many small laps inside the box, is the correction — and it is also
+        a better shot, because the asymmetry is the thing worth seeing.
+
+        **The accounting rule, and it is not negotiable:** at every moment,
+        `words revealed == cycles completed`. `self.tokens_emitted` is the only
+        thing that drives `answer.reveal`, it starts at 1 (the token the
+        sampler picked, already in the bubble), and it is incremented in exactly
+        one place — the emission play below. No arithmetic expression, because
+        the version that shipped used one and it was wrong by six words.
+        """
         s = self.set
-        loop = s.circuit()
 
         self.play(
             camera.frame_all(self, [s.everything], pad=1.0, run_time=1.3),
@@ -925,55 +1081,178 @@ class TheLifecycle(MovingCameraScene):
             rate_func=motion.FEATURE,
         )
 
-        passes = 2
-        words_per_pass = max(1, (self.answer.word_count - 3) // passes)
-        for i in range(passes):
-            # On the path BEFORE the comet is attached — see beat_stream.
-            runner = Dot(radius=0.22, color=theme.TOKEN)
-            runner.move_to(loop.point_from_proportion(0))
-            # Short dissipation: at this speed a long tail stops reading as a
-            # comet and starts reading as a line drawn through the machines,
-            # and its straight per-frame chords cut the corners visibly.
-            spark = effects.comet(
-                runner, color=theme.TOKEN, width=9, dissipating_time=0.08
-            )
-            self.add(spark, runner)
-            self.play(
-                MoveAlongPath(runner, loop, run_time=LOOP_RUN_TIME),
-                # Glow only — no scale pop. Animating a node's geometry means
-                # animating a VGroup, which interpolates the group's own
-                # transparent rgba onto its children and blanks every label in
-                # the bay. The light alone reads as the machine reacting.
-                LaggedStart(
-                    *[
-                        s.glow_for(node).animate.set_stroke(opacity=1.0)
-                        for node in s.nodes
-                    ],
-                    lag_ratio=0.16,
-                ),
-                run_time=LOOP_RUN_TIME,
-                rate_func=motion.MOVE,
-            )
-            self.remove(runner, spark)
-            self.play(
-                LaggedStart(
-                    *[
-                        s.glow_for(node).animate.set_stroke(opacity=s.resting_glow)
-                        for node in s.nodes
-                    ],
-                    lag_ratio=0.1,
-                ),
-                self.answer.animate.reveal(3 + (i + 1) * words_per_pass),
-                run_time=0.2,
-                rate_func=motion.EXIT,
-            )
-
-        self.play(
-            self.answer.animate.reveal(self.answer.word_count),
-            run_time=0.3,
-            rate_func=motion.ENTER,
+        # -- ONE lap of the whole plant --------------------------------------
+        # The full circuit, once, because it IS crossed once — outbound by the
+        # request and inbound by the reply. What changed is that it happens a
+        # single time and then goes quiet.
+        request = s.circuit()
+        # On the path BEFORE the comet is attached — see beat_stream. Short
+        # dissipation: at this speed a long tail stops reading as a comet and
+        # starts reading as a line drawn through the machines.
+        runner = Dot(radius=0.22, color=theme.TOKEN)
+        runner.move_to(request.point_from_proportion(0))
+        spark = effects.comet(
+            runner, color=theme.TOKEN, width=9, dissipating_time=0.08
         )
-        self.wait(0.4)
+        self.add(spark, runner)
+        caption = self._wide_note("the request crosses once")
+        self.play(
+            MoveAlongPath(runner, request, run_time=REQUEST_LAP_RUN_TIME),
+            # Glow only — no scale pop. Animating a node's geometry means
+            # animating a VGroup, which interpolates the group's own transparent
+            # rgba onto its children and blanks every label in the bay.
+            #
+            # `request_nodes`, not `nodes`. The three loop bays are deliberately
+            # left dark here: they light in the cycles below, which is what
+            # makes the hand-off from "crossing the plant" to "running the loop"
+            # legible rather than one long undifferentiated sweep.
+            LaggedStart(
+                *[
+                    s.glow_for(node).animate.set_stroke(opacity=1.0)
+                    for node in s.request_nodes + [s.stream]
+                ],
+                lag_ratio=0.14,
+            ),
+            FadeIn(caption, shift=UP * theme.PAD_XS),
+            run_time=REQUEST_LAP_RUN_TIME,
+            rate_func=motion.MOVE,
+        )
+        self.remove(runner, spark)
+
+        # -- and now it is done: the outside drops to resting and stays there --
+        # This is the assertion the old cut got wrong, made visually. From here
+        # to the end of the film nothing outside the box lights up again.
+        self.play(
+            *[
+                s.glow_for(node).animate.set_stroke(opacity=s.resting_glow)
+                for node in s.request_nodes + [s.stream]
+            ],
+            *[
+                s.glow_for(node).animate.set_stroke(opacity=LOOP_REST_GLOW)
+                for node in s.loop_nodes
+            ],
+            FadeOut(caption),
+            run_time=0.3,
+            rate_func=motion.EXIT,
+        )
+
+        # -- the loop: one lap inside the box, one token, one word ------------
+        cycle = s.decode_cycle()
+        home = routing.join(*s.home_rails())
+
+        caption = self._wide_note("one token per pass")
+        self.play(FadeIn(caption, shift=UP * theme.PAD_XS),
+                  run_time=0.2, rate_func=motion.ENTER)
+        for lap, emit in CYCLES_EXPLICIT:
+            self._token_cycle(cycle, home, lap, emit, comet=True)
+
+        # -- acceleration -----------------------------------------------------
+        # Honest, and it has to READ as acceleration rather than as the
+        # animation giving up: the cycle time halves across six passes and the
+        # words land in step with it. Real decoding is roughly sixty of these a
+        # second, which no film can show at one-cycle-per-word; the ramp is what
+        # says "and this keeps going, faster than you can follow".
+        faster = self._wide_note("≈60 tokens a second")
+        # One play, not two. Two consecutive caption plays cost 0.45s of a beat
+        # whose whole job is to keep accelerating, and a beat that pauses to
+        # change its own caption is exactly what "the animation gave up" looks
+        # like.
+        self.play(
+            FadeOut(caption),
+            FadeIn(faster, shift=UP * theme.PAD_XS),
+            run_time=0.25,
+            rate_func=motion.MOVE,
+        )
+        caption = faster
+        for lap, emit in CYCLES_FAST:
+            # No comet below EMIT_RUN_TIME. A trail is drawn as straight chords
+            # between per-frame samples, so at these speeds it stops being a
+            # comet and becomes one long line across the plant — which reads
+            # exactly like the routing bug this repo has fixed twice. A bare dot
+            # is sampled onto the true path every frame and cannot cut a corner.
+            self._token_cycle(cycle, home, lap, emit, comet=False)
+
+        # The counter and the bubble must agree at the end as well as during:
+        # eleven words, eleven tokens, and nothing "completes" the sentence that
+        # a cycle did not produce.
+        assert self.tokens_emitted == self.answer.word_count, (
+            f"{self.tokens_emitted} tokens emitted but the reply has "
+            f"{self.answer.word_count} words. Every word in the bubble is one "
+            "decode cycle the viewer watched; adjust CYCLES_FAST, not the "
+            "reveal."
+        )
+        self.play(FadeOut(caption), run_time=0.25, rate_func=motion.EXIT)
+        self.wait(0.5)
+
+    def _token_cycle(self, cycle, home, lap: float, emit: float, *,
+                     comet: bool) -> None:
+        """One decode step: lap the loop, emit one token, reveal one word.
+
+        Serial on purpose, and this is the one place the film could have been
+        shorter. Overlapping the flight home with the next cycle is what a real
+        implementation does and it would buy about a second — but then a still
+        pulled anywhere in the beat shows more completed cycles than words in
+        the bubble, and "one word per token" stops being provable from the
+        frames. The beat pays the second.
+        """
+        s = self.set
+        runner = Dot(radius=0.24, color=theme.TOKEN)
+        runner.move_to(cycle.point_from_proportion(0))
+        parts = [runner]
+        if comet:
+            parts.insert(
+                # 0.05 for the same reason the flight home uses it: the trail
+                # is drawn as straight chords between per-frame samples, and at
+                # this speed a longer one spans the L-corner inside the prefill
+                # bay and reads as a diagonal cutting across the column.
+                0, effects.comet(runner, color=theme.TOKEN, width=7,
+                                 dissipating_time=0.05)
+            )
+        self.add(*parts)
+        self.play(
+            MoveAlongPath(runner, cycle, run_time=lap),
+            LaggedStart(
+                *[
+                    s.glow_for(node).animate.set_stroke(opacity=1.0)
+                    for node in s.loop_nodes
+                ],
+                lag_ratio=0.25,
+            ),
+            run_time=lap,
+            rate_func=motion.MOVE,
+        )
+        self.remove(*parts)
+
+        token = Dot(radius=0.20, color=theme.ASSISTANT)
+        token.move_to(home.point_from_proportion(0))
+        out = [token]
+        if comet:
+            # 0.05, a third of what anything else in this film uses. The way
+            # home is 74 units and this flight crosses it in 0.40s, so at 60fps
+            # a chord is 3.1 units: a trail of the usual length is six of those
+            # welded end to end, which at the pull-back is a green line drawn
+            # across the plant rather than a comet, and it shaves the two
+            # corners on the way. Three frames of tail is a dash that keeps the
+            # momentum and cannot become a line.
+            out.insert(
+                0, effects.comet(token, color=theme.ASSISTANT, width=7,
+                                 dissipating_time=0.05)
+            )
+        self.add(*out)
+        # The ONE place the counter moves. One cycle completed, one token out,
+        # one more word — and the reveal lands as the token reaches the chat.
+        self.tokens_emitted += 1
+        self.play(
+            MoveAlongPath(token, home, run_time=emit),
+            self.answer.animate.reveal(self.tokens_emitted),
+            *[
+                s.glow_for(node).animate.set_stroke(opacity=LOOP_REST_GLOW)
+                for node in s.loop_nodes
+            ],
+            run_time=emit,
+            rate_func=motion.MOVE,
+        )
+        self.remove(*out)
 
     # --------------------------------------------------------------- helpers
     def _carry(self, target) -> list:
@@ -987,6 +1266,25 @@ class TheLifecycle(MovingCameraScene):
         """
         delta = np.array(target, dtype=float) - self.packet.get_center()
         return [member.animate.shift(delta) for member in self.parcel]
+
+    def _wide_note(self, text: str):
+        """A caption read at the pull-back, in the empty middle of the world.
+
+        Sized against SHOT_WIDE, like every other label that is read out here —
+        a caption typed for a close-up is three pixels tall at this distance.
+
+        Placed at (-4, -2.5), which is the one large empty region the layout
+        leaves: the top band stops at y=+7.6, the bottom band starts at
+        y=-10.6, the box starts at x=+12.3 and the chat ends at x=-19.2. It is
+        derived from nothing, so if the layout moves, look here — but the
+        alternative, hanging it off a station, puts a wide-shot caption on top
+        of that station's wide-shot label.
+        """
+        note = typography.text(
+            "label", text, frame_width=SHOT_WIDE, color=theme.FG_MUTED
+        )
+        note.move_to(np.array([-4.0, -2.5, 0.0]))
+        return note
 
     def _chip(self, icon: str, name: str) -> VGroup:
         """A tiny icon+word badge — one of the things the orchestrator loads."""

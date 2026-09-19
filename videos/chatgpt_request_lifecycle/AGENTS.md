@@ -99,8 +99,15 @@ width 20 is under-sized — that is why the after bay's `CheckList` is built wit
   plain list moved by a shared delta, not a `VGroup`.
 - Every `self.play` takes an explicit `run_time` and a `rate_func=motion.*`.
 - One `motion.FEATURE` per beat, maximum.
-- The end-of-film loop's duration is `LOOP_RUN_TIME` **in the set**, because
-  `validate()` budgets its chord-clearance check against it.
+- The end-of-film lap's duration is `REQUEST_LAP_RUN_TIME` **in the set**, and
+  the emitted token's flight home is `EMIT_RUN_TIME`, because `validate()`
+  budgets its chord-clearance checks against them.
+- Rails that run **inside** the `PipelineBox` must be added to the set *after*
+  `self.llm`. The box frame is an opaque fill and buries anything added before
+  it — which is how the loop-back rail first rendered as nothing at all.
+- The pull-back's token loop is `decode_cycle()`, not `circuit()`, and it lights
+  `loop_nodes` only. Lighting `nodes` on a repeating pass is the correctness bug
+  this film was fixed for.
 
 ## Reviewing a change
 
