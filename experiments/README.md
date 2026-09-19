@@ -13,16 +13,20 @@ compared with the continuous uncut take the repo ships?
 `slides_lifecycle/slides_scene.py` subclasses the shipped `TheLifecycle` scene
 and runs its existing beat methods unchanged. It copies **no** choreography —
 the timings in `videos/chatgpt_request_lifecycle/` remain the single source of
-truth. The spike covers the top band only (client → edge → gateway →
-orchestrator).
+truth. The spike covers the **whole film**: all eleven beats, client through
+pull-back, including the two values the shipped `construct` threads between
+beats (the token strip into `beat_prefill`, the winning chip into
+`beat_stream`). An earlier round covered the top band only; nothing about that
+round's per-transition behaviour changed when the other seven beats were
+added.
 
 ### Granularity: one click per animation
 
 The first cut stopped once per *beat*: four stops, i.e. a slideshow of four long
 movies. This one overrides `Scene.play` instead, so **every animation the
-shipped choreography runs gets its own stop** — 28 animations, 27 stops,
-0.20s–1.93s each (median 0.60s), none of them a single frame. Three things make
-that work:
+shipped choreography runs gets its own stop** — 97 animations, 70 stops,
+0.20s–2.67s each (median 0.67s), none of them a single frame and none under
+0.2s. Four things make that work:
 
 - **`Scene.wait()` is `self.play(Wait(...))`** in manim 0.21. Splitting on every
   `play` therefore turns each per-character hold of `ChatInput.type_animation`
@@ -40,23 +44,91 @@ that work:
   it**, giving one click that reads "old props clear, camera moves on, new
   content appears". The direction matters and is easy to get backwards:
   suppressing before the clear-down instead merges it into the *previous* slide,
-  so content would appear and instantly vanish under a single click. Two stops
-  are merged this way (edge→gateway, gateway→orchestrator); their chunk
-  durations are the sum of both plays' `run_time`s, which is how the merge is
-  checked.
+  so content would appear and instantly vanish under a single click. Thirteen
+  plays merge forward this way across the film; their chunk durations are the
+  sum of both plays' `run_time`s, which is how the merge is checked.
+- **Repeats whose shape is the content play through under one click** — see
+  "The loops that must not become clicks" below.
 
-Detecting a clear-down is not "contains a `FadeOut`" — the beats also combine a
-`FadeOut` with a `camera.focus` move in one `play`, and that is a transition,
-not a clear-down. Nor is it "every animation is a `FadeOut`": the real tails
-pair their fades with a glow dimming to its resting stroke, and with the packet
-dropping to the next rail. The predicate is: at least one `FadeOut`, nothing
-being introduced, and the camera staying put.
+Detecting a clear-down is not "contains a `FadeOut`": the real tails pair their
+fades with a glow dimming to its resting stroke, and with the packet dropping to
+the next rail, so "every animation is a `FadeOut`" would match none of them. The
+predicate is **at least one `FadeOut` and nothing being introduced**, and two
+parts of that took a render and a frame to get right:
 
-The one animated hold is on **animation 3, the typing-indicator dots** — the
-only animation in the top band whose replay reads as a live idle rather than a
-value snapping back to its start. Every other stop freezes, so the two can be
-compared in one sitting. That contrast is what this spike asks a viewer to
-judge.
+- *Introduced* is not the same as `FadeIn`. `beat_sample` absorbs the sampled
+  chip into the cache with `Flash(kv) + FadeOut(kv)`; a FadeIn-only test reads
+  that as a clear-down and merges it into the genuine clear-down after it, so
+  the stop rests on a cleared bay. Arrival is now a list of classes — `FadeIn`,
+  `Flash`, `Create`, `DrawBorderThenFill`, `MoveAlongPath`. A `.animate` call is
+  deliberately never an arrival (it is how the glows, the meters and the camera
+  are animated); a bare `.animate.set_opacity(1.0)` paired with a `FadeOut` and
+  nothing else would therefore be misclassified. No play in this film is one.
+- **A camera move no longer disqualifies a clear-down.** The top-band cut also
+  required the camera to stay put, reasoning that "the props go while the camera
+  carries on" is a transition rather than a clear-down. The frames do not
+  support the distinction: such a play ends on the same half-faded prop, because
+  Manim renders an animation's last frame at `t = run_time - 1/fps` and
+  `FadeOut` only removes the mobject after that. `scene_lifecycle.py:849` proved
+  it — the sampler's loop caption was clearly legible, mid-fade, on a resting
+  frame. Two plays change as a result (`:849`, and `:984` where the spinner goes
+  as the camera returns to the chat, which used to rest on an *empty* bubble
+  frame); no play in the top band combines a `FadeOut` with a camera move, so
+  the 27 stops already signed off on are unchanged, which was checked by diffing
+  every chunk duration against the previous render.
+
+Watch out for `Transform` if you extend the arrival list: `.animate` resolves to
+`_MethodAnimation`, whose MRO runs `MoveToTarget -> Transform` and does *not*
+pass through `ApplyMethod`. Listing `Transform` silently classifies every built
+`.animate` — including `camera.focus` — as an arrival, which reinstates the
+camera rule above while leaving the stop count identical. It was caught by
+looking at the frame, not at the numbers.
+
+### The loops that must not become clicks
+
+The back half repeats structures the top band does not, and `no_stops()` — a
+context manager that suppresses splitting for a region — decides which of them
+step and which play through. Its first play still opens a stop, so a suppressed
+region is its own click rather than an extension of the one before it.
+
+**Suppressed: the token cycles in `beat_pull_back`.** Each cycle is two plays
+(lap the loop, then fly a token home and reveal a word), and split per play the
+first of the two rests on a dot back where it started with no new word — a click
+that shows nothing. So every cycle is one click. On top of that, the six
+`CYCLES_FAST` cycles are **one click for the whole ramp**: that list halves
+across six passes and the film's own comment (`scene_lifecycle.py:139-147`) says
+its shape IS the acceleration. Six clicks flatten it as surely as re-timing it
+would, twelve worse. The four `CYCLES_EXPLICIT` cycles keep a click each,
+because they are the ones the film says the viewer is meant to *count*: one
+click, one token, one more word, which the frames show (`A` → `A dozen` → … →
+`A dozen machines touch it`), and then the ramp's single click lands the
+remaining six words at once. The ramp chunk is 2.67s against 2.34s of nominal
+`run_time` — frame rounding at 15fps, not a stretched animation.
+
+Because the cycle loop sits in the middle of a beat this scene may not edit,
+the ramp's region is opened by the first fast cycle and closed by `play` at the
+first animation that does not come from inside a cycle. That is the only sticky
+region in the file.
+
+**Not suppressed, deliberately:** the orchestrator's context bar (`:449`), which
+fills one segment per click — five stops, each a distinct state, and the ones
+the user singled out as good; the decode bay's three activate/deactivate pulses
+(`:682`), because the batch lanes advance a step on each one, so every stop
+differs from the one before it and all six rest on a full bay; and
+`beat_stream`'s four packets, which are a single `LaggedStart`, i.e. already one
+play. The rule applied throughout: keep the stops unless the repetition is a
+ramp or a texture rather than a sequence of distinct states.
+
+### The one animated hold
+
+It is on **animation 3, the typing-indicator dots** — still the only animation
+in the film whose replay reads as a live idle rather than a value snapping back
+to its start (the back half's candidates, a token lapping the loop or flying
+home, end somewhere other than where they began, so looping them teleports the
+dot). Every other stop freezes, so the two can be compared in one sitting. That
+contrast is what this spike asks a viewer to judge. The index is checked against
+the animation itself at the split site now, not just against the totals: a
+reorder that preserved the counts would otherwise move the loop silently.
 
 ### Why the `SETTLE` wait went
 
@@ -68,11 +140,15 @@ a pure-`Wait` play, so it extends the slide *past* the animation and parks the
 stop on the cleared state — the disappearing-text problem, reintroduced.
 Merging clear-downs forward removes the need for it.
 
-One hold survives, `END_HOLD`, at the very end of the deck only: the last
-clear-down has no successor to merge into and no next slide to carry the frame.
-Without it the final still is a half-faded caption (confirmed by extracting it);
-with it the deck ends on the emptied band with the packet on the rail down into
-the inference stack.
+**`END_HOLD` is gone.** The top-band cut kept one hold at the very end, because
+that cut stopped after `beat_orchestrator`, whose last play is a clear-down with
+no successor to merge into and no next slide to carry the frame. The full film
+does not need it: `beat_pull_back` ends with `self.play(FadeOut(caption))`
+followed by the shipped `self.wait(0.5)`, and a trailing wait is a pure-`Wait`
+play, so it already extends the final slide past the fade. The deck's last chunk
+is 0.733s for a 0.25s fade, and its final frame is the whole plant at rest with
+the finished reply in the bubble — checked by extracting it, not assumed. The
+constant was removed rather than kept with a comment that is no longer true.
 
 Build it:
 
