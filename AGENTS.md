@@ -33,9 +33,36 @@ runs), `docs/component-guide.md` (how to write a `/lib` component),
 
 ## Roles
 
-**Generator** — builds scenes and components. **Evaluator** — `scripts/evaluate.py`,
-which the generator runs but may not edit. The split exists because an agent that
-can change both the work and its grading can pass by weakening the check.
+**Planner** — reads the request and the code, decides what to build, and writes
+the plan. **Generator** — builds scenes and components from that plan.
+**Reviewer** — checks the built result against the plan and against reality.
+**Evaluator** — `scripts/evaluate.py`, which the generator runs but may not edit.
+
+The Generator/Evaluator split exists because an agent that can change both the
+work and its grading can pass by weakening the check. The Planner/Generator and
+Generator/Reviewer splits exist for the same reason one step out: an agent that
+decides what to build, builds it, and then judges its own build has no
+independent check on any of the three. Every real defect this repo has shipped
+was invisible to the gates and caught by a fresh pair of eyes.
+
+## How a change is made — mandatory
+
+**Plan → delegate → review → verify.** This applies to *every* change to this
+repo. Answering a question or read-only investigation is not a change.
+
+1. **Plan first, in detail**, from the code rather than from memory. Write it to
+   a file.
+2. **Hand the plan to a subagent to implement.** The planning session does not
+   write the implementation itself.
+3. **A separate subagent reviews the result** — one that did not write it.
+4. **Verify the headline claims yourself.** A subagent's report is a claim, not
+   a fact.
+
+Full protocol, including what a plan must contain and how to brief each
+subagent: `docs/session-playbook.md` → "Plan, delegate, review".
+
+Nothing here licenses skipping the Evaluator, editing a protected path, or
+approving a baseline without looking at the render.
 
 ### Rules for the Generator
 

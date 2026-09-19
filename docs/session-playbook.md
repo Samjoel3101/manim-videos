@@ -29,6 +29,70 @@ Before writing any code:
 Step 5 costs a couple of minutes and regularly saves an hour of building on a
 broken assumption.
 
+## Plan, delegate, review
+
+`AGENTS.md` states the rule; this is the protocol. It is mandatory for every
+change to this repo — scenes, components, tests, docs, manifests, config.
+Answering a question, or read-only investigation that changes nothing, is not a
+change and does not need the loop.
+
+The reason is the one already written into the Generator/Evaluator split, one
+step further out: an agent that decides what to build, builds it, and then
+judges its own build has no independent check at any of the three points. Every
+defect this repo has shipped was invisible to the five gates and caught by a
+fresh pair of eyes — rails that had never been drawn, a bar chart with no
+number on it, a label three times under the readability floor.
+
+### 1. Plan
+
+Before any file is written, read the code and work out the whole change. A plan
+that is worth handing over states:
+
+- what is wrong or missing, precisely, with `file:line` where it applies;
+- the exact files, symbols and constants involved;
+- the measured numbers it depends on — geometry, extents, timings — **measured,
+  not assumed.** Plans written from memory produce implementations that fail on
+  first render;
+- the step-by-step or beat-by-beat shape of the result, with timings;
+- the tests and baselines it needs;
+- the verification that would prove it correct, in enough detail to execute;
+- a definition of done, as a checklist;
+- the hard rules that apply (theme, typography, motion, protected paths).
+
+Write it to a file. The implementer and the reviewer then read the same text
+instead of two paraphrases of it.
+
+### 2. Delegate
+
+Hand the plan's path to a subagent. Give it the repo rules, the exact commands,
+the branch to commit and push to, and an explicit instruction to report what it
+could not do. Ask for evidence rather than assurances: for anything visual, what
+it *saw in a frame*, not what the code now says.
+
+Expect it to depart from the plan. A plan written without rendering anything is
+frequently wrong about sizes and timings; a good implementer measures, finds the
+plan's error, and says so. Ask for those departures with reasons.
+
+### 3. Review
+
+A second subagent, which did not write the code. Give it the implementer's
+specific claims and ask it to check them — "verify this list" produces a sharper
+review than "look this over". Tell it to rank findings by severity, to separate
+real defects from weaknesses, to name what is genuinely good, and to say plainly
+if it finds nothing serious rather than manufacturing findings. Tell it not to
+modify, commit or push anything.
+
+### 4. Verify yourself
+
+Before reporting to the user, check the headline claims with your own tools. Run
+the Evaluator. Read the frames. A subagent's report is a claim, not a fact, and
+the claims that matter most are the ones easiest to assert without checking.
+
+### Fixing what the review finds
+
+Small, precise fixes can go straight to an implementer with the findings
+attached. Anything larger goes back through the loop from step 1.
+
 ## One unit of work per session
 
 A unit is one scene, or one component plus its tests — not "as much as fits".
