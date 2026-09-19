@@ -99,7 +99,13 @@ SHOT_WIDE = 58.0
 #: joined with straight chords, so a faster lap cuts corners harder. Keeping the
 #: number in one place is what stops the assertion silently checking a shot that
 #: no longer exists.
-REQUEST_LAP_RUN_TIME = 1.6
+#:
+#: 1.6 → 2.2 for the narration pass. The lap is the pull-back's one long travel
+#: and it is what "the request crosses the plant once" is spoken over, so it is
+#: where the beat's extra time went — a slower lap over the same path, rather
+#: than a second lap, which would say the opposite of what the shot means.
+#: Slowing it only makes the chord budget below finer, never coarser.
+REQUEST_LAP_RUN_TIME = 2.2
 
 #: How long one emitted token takes to fly the whole way home, in the pull-back's
 #: four EXPLICIT cycles — the slowest thing that draws a comet over

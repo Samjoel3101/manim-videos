@@ -1,6 +1,6 @@
 # What happens when you hit send — script
 
-**50 seconds, one continuous shot, no cuts.**
+**59.5 seconds, one continuous shot, no cuts. Hard cap: 60.0 s.**
 
 The extended cut of `chatgpt_message_journey`. That film showed the model; this
 one shows the whole plant the model sits inside — client, edge, gateway,
@@ -68,24 +68,27 @@ the kind of single-token error the snapshot gate cannot see.
 
 | Timecode | Beat | Shot |
 |---|---|---|
-| 0.00–4.59 | **Client** — types, Enter, the request assembles, optimistic bubble + spinner, POST leaves | chat, W=14 → 18 |
-| 4.59–8.79 | **Bot check + Edge** — proof-of-work stamp; WAF / bot score / rate limit tick; proxied to the nearest region | pan right, W=16 |
-| 8.79–12.59 | **Gateway** — session ✓, plan → model ✓, quota meter fills, trace id stamped on the packet | pan right, W=16 |
-| 12.59–17.79 | **Orchestrator** — conversation + memory load; the prompt assembles as a stacked bar; your 7 tokens are a sliver; route + input classifier | pan right, W=16 |
-| 17.79–21.59 | **Tokenizer** — chat template markers, then the line shatters into id chips | dive to W=13.6 |
-| 21.59–25.44 | **Prefill · KV cache** — the prefix is already cached; only the tail is computed | pan down, W=13.6 |
-| 25.44–29.44 | **Decode loop** — 96 layers; *one token in, one pass out — the rest is cached*; your row inside a running batch | pan down, W=13.6 |
-| 29.44–34.54 | **Sampling** — a score for every word it knows; temperature/top-p; one is picked — and then **the loop**: a copy of the winning token rides the loop-back rail up to the KV cache, "and round again" | pan down, W=13.6 → 16 |
-| 34.54–38.44 | **Stream back** — detokenise, output safety, tool call?, SSE chunks fly home; the **first word** lands (one token, one word) | W=16 → 45 → 14 |
-| 38.44–40.39 | **After** — a copy drops down the spur: persisted, billed, jobs queued | swing down-left, W=20 |
-| 40.39–41.69 | **The whole plant** — pull all the way out, wide labels cross-fade in | W=58 |
-| 41.69–43.29 | **One lap, once** — a single runner crosses the plant: bot check, edge, gateway, orchestrator, tokenizer, out through the stream and home. Then the outside drops to a resting glow and never lights again. Caption: *the request crosses once* | W=58 |
-| 43.29–46.99 | **Four decode cycles** — the runner laps `decode_cycle()` INSIDE the box; each lap emits one token that flies the reply rail to the chat and reveals **exactly one** more word. Caption: *one token per pass* | W=58 |
-| 46.99–49.55 | **Acceleration** — six more cycles, each faster than the last, six more words. Caption: *≈60 tokens a second* | W=58 |
-| 49.55–50.25 | Caption out, hold on the finished answer | W=58 |
+| 0.00–4.84 | **Client** — types, Enter, the request assembles, optimistic bubble + spinner, POST leaves | chat, W=14 → 18 |
+| 4.84–9.39 | **Bot check + Edge** — proof-of-work stamp; WAF / bot score / rate limit tick; proxied to the nearest region | pan right, W=16 |
+| 9.39–13.54 | **Gateway** — session ✓, plan → model ✓, quota meter fills, trace id stamped on the packet | pan right, W=16 |
+| 13.54–20.29 | **Orchestrator** — conversation + memory load; the prompt assembles as a stacked bar; your 7 tokens are a sliver; route + input classifier | pan right, W=16 |
+| 20.29–24.49 | **Tokenizer** — chat template markers, then the line shatters into id chips | dive to W=13.6 |
+| 24.49–29.59 | **Prefill · KV cache** — the prefix is already cached; only the tail is computed | pan down, W=13.6 |
+| 29.59–34.24 | **Decode loop** — 96 layers; *one token in, one pass out — the rest is cached*; your row inside a running batch | pan down, W=13.6 |
+| 34.24–40.79 | **Sampling** — a score for every word it knows; temperature/top-p; one is picked — and then **the loop**: a copy of the winning token rides the loop-back rail up to the KV cache, "and round again" | pan down, W=13.6 → 16 |
+| 40.79–45.19 | **Stream back** — detokenise, output safety, tool call?, SSE chunks fly home; the **first word** lands (one token, one word) | W=16 → 45 → 14 |
+| 45.19–47.44 | **After** — a copy drops down the spur: persisted, billed, jobs queued | swing down-left, W=20 |
+| 47.44–48.74 | **The whole plant** — pull all the way out, wide labels cross-fade in | W=58 |
+| 48.74–49.24 | Hold on the whole plant, still, before anything moves in it | W=58 |
+| 49.24–51.44 | **One lap, once** — a single runner crosses the plant: bot check, edge, gateway, orchestrator, tokenizer, out through the stream and home. Then the outside drops to a resting glow and never lights again. Caption: *the request crosses once* | W=58 |
+| 51.44–51.94 | Outside drops to resting; caption swaps | W=58 |
+| 51.94–55.78 | **Four decode cycles** — the runner laps `decode_cycle()` INSIDE the box; each lap emits one token that flies the reply rail to the chat and reveals **exactly one** more word. Caption: *one token per pass* | W=58 |
+| 55.78–56.03 | Caption swap | W=58 |
+| 56.03–58.37 | **Acceleration** — six more cycles, each faster than the last, six more words. Caption: *≈60 tokens a second* | W=58 |
+| 58.37–59.52 | Caption out, hold on the finished answer | W=58 |
 
-The `run_time`s sum to **50.25 s** against a 50 s budget (±1.5 s); the measured
-`final` cut is 50.12 s. Manim rounds every play up to a whole frame and there are
+The `run_time`s sum to **59.52 s** against a 60 s cap; the measured `final` cut
+is 59.40 s. Manim rounds every play up to a whole frame and there are
 about ninety of them, which costs ~0.8 s at 60 fps and ~2.5 s at 15 fps — the
 draft profile, being 15 fps, always reads high. The measured figure for the
 shipped cut is in `scenes.json`.
@@ -110,38 +113,87 @@ token and four for each of two further "tokens": two tokens, eight words.
 Every beat method in `scenes/scene_lifecycle.py` carries its target timecode in a
 comment above it; changing one `run_time` means re-balancing its neighbours.
 
-## Narration (no voice-over pass in this cut)
+## Narration (131 words — holds are placed for it; no voice recorded yet)
 
-> You hit send. Before anything reaches a GPU, your browser has already built a
-> request — your text, the conversation it belongs to, which model you are
-> allowed to use — and proved it is not a bot.
+**The script was cut to the film, not the film stretched to the script.** The
+previous narration here was 315 words: at 150–165 wpm that is 115–126 seconds of
+speech for a 50-second film under a 60-second cap, so it needed roughly twice the
+entire budget. Adding ten seconds of holds could never have closed that gap; the
+only honest move was an editorial cut of about 60%. What went is everything the
+picture already makes — the list of things in the request card, the names of the
+sampling knobs, the itemised contents of the prompt, the jobs the epilogue
+queues. What stayed is what the frame cannot say on its own: the cache, the loop,
+and the asymmetry between crossing the plant once and looping inside it.
+
+131 words is ≈50 s at 155 wpm inside a 59.5 s film, which leaves the opening, the
+gaps between beats and the final hold as silence — deliberately. A line may run a
+little past its own beat into the next one's slack; the two places that is
+designed in are the orchestrator's line finishing over the tokenizer, and the
+prefill's finishing over the decode beat.
+
+| Beat | Words | Line |
+|---|---|---|
+| Client | 11 | "You hit send. Before anything else: prove you're not a bot." |
+| Edge | 10 | "It clears a firewall, a bot score, a rate limit." |
+| Gateway | 11 | "A gateway decides who you are and what you've paid for." |
+| Orchestrator | 17 | "None of this is the model. Your question ends up the last few tokens of four thousand." |
+| Tokenizer | 4 | "That's cut into tokens." |
+| Prefill | 12 | "Most of this prompt is already cached. Only the tail is computed." |
+| Decode | 11 | "Then one pass through the stack, sharing the machine with strangers." |
+| Sampling | 17 | "One word is picked, and it goes two ways: out to you, and back into the cache." |
+| Stream | 9 | "It becomes text, checked, and pushed down the wire." |
+| After | 6 | "A copy is stored, counted, billed." |
+| Pull-back | 23 | "The request crosses the plant once. The answer is a loop between three bays — sixty times a second. Nothing upstream is asked twice." |
+| **Total** | **131** | |
+
+Read end to end:
+
+> You hit send. Before anything else: prove you're not a bot. It clears a
+> firewall, a bot score, a rate limit. A gateway decides who you are and what
+> you've paid for.
 >
-> It lands at the edge: a firewall, a bot score, a rate limit. Then a gateway,
-> which works out who you are, what you have paid for, and how much you have
-> left.
+> None of this is the model. Your question ends up the last few tokens of four
+> thousand. That's cut into tokens. Most of this prompt is already cached; only
+> the tail is computed. Then one pass through the stack, sharing the machine
+> with strangers.
 >
-> Now the part that is not the model at all. The orchestrator loads your
-> conversation, your memory, your instructions, and builds the prompt: a system
-> message, tool definitions, everything the model needs to behave. Your question
-> is the last few tokens of about four thousand.
+> One word is picked, and it goes two ways: out to you, and back into the cache.
+> It becomes text, checked, and pushed down the wire. A copy is stored, counted,
+> billed.
 >
-> That gets cut into tokens. Most of it the machine has seen before — the shared
-> prefix is already in cache, so only the tail is computed. Then the decode loop:
-> one token per step, your request riding in a batch with strangers'.
->
-> Every step produces a score for every word it knows. One gets picked — and it
-> goes two ways at once. It is turned back into text, checked, and pushed down
-> the wire, which is why the answer arrives a word at a time. And its keys and
-> values are appended to the cache, so the next step can read everything that
-> came before instead of recomputing it.
->
-> That is the loop, and it is the whole shape of generation. The request crosses
-> the plant once. The answer is made by three bays talking to each other —
-> cache, decode, sample — going round about sixty times a second, one word
-> falling out of the machine each time. Nothing upstream is asked twice.
->
-> And when it finishes, a copy goes somewhere else entirely: stored, counted,
-> billed, and handed to the jobs that title the chat and remember what you said.
+> The request crosses the plant once. The answer is a loop between three bays —
+> sixty times a second. Nothing upstream is asked twice.
+
+### Where the holds are
+
+The 9.27 s this pass added is **stillness after content lands**, never slower
+motion: a camera move stretched by a third reads as sluggish, the same move
+followed by a beat of stillness reads as deliberate. Every one is a bare
+`self.wait(t)` in `scenes/scene_lifecycle.py` with a comment naming the line it
+carries.
+
+| Beat | Was | Added | Now | Where the hold sits |
+|---|---|---|---|---|
+| Client | 4.59 | +0.25 | 4.84 | after the request card lands |
+| Edge | 4.20 | +0.35 | 4.55 | after all three checks are struck |
+| Gateway | 3.80 | +0.35 | 4.15 | after the quota meter stops |
+| Orchestrator | 5.20 | +1.55 | 6.75 | +1.00 on the emphasised sliver, +0.55 after the badges |
+| Tokenizer | 3.80 | +0.40 | 4.20 | after the id chips have all arrived |
+| Prefill | 3.85 | +1.25 | 5.10 | +0.75 on the emphasised tail, +0.50 on the second caption |
+| Decode | 4.00 | +0.65 | 4.65 | after the batch meter stops |
+| Sampling | 5.10 | +1.45 | 6.55 | +0.45 after the winner's Flash, +1.00 once the copy has joined the cache |
+| Stream | 3.90 | +0.50 | 4.40 | on the first word in the bubble |
+| After | 1.95 | +0.30 | 2.25 | after the ledger ticks |
+| Pull-back | 9.86 | +2.22 | 12.08 | +0.50 on the whole plant before the lap, +0.60 on the lap itself, +0.72 across the four explicit cycles, +0.40 on the final frame |
+| **Total** | **50.25** | **+9.27** | **59.52** | |
+
+Three things in the pull-back were deliberately **not** touched. `CYCLES_FAST` is
+a halving ramp and its shape *is* the acceleration, so stretching it would undo
+the fix that put it there. No cycle was added — eleven words, eleven tokens,
+asserted at the end of the beat. And `EMIT_RUN_TIME` stayed at 0.40 because
+`validate()` budgets the emitted token's comet chords against it; the extra lap
+time went into `REQUEST_LAP_RUN_TIME` (1.6 → 2.2), where a *slower* lap only
+makes that budget finer.
 
 ## Notes for editing
 

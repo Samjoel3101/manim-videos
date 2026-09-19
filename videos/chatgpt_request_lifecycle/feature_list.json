@@ -106,7 +106,7 @@
       "id": "shot-pullback",
       "priority": 7,
       "scene_class": "TheLifecycle",
-      "title": "41-50s: the plant is asymmetric - crossed once, looped many times",
+      "title": "41-60s: the plant is asymmetric - crossed once, looped many times",
       "status": "passing",
       "acceptance": [
         "Every part of the lifecycle is in frame at once",
@@ -116,19 +116,22 @@
         "Ten decode cycles then lap decode_cycle() INSIDE the box, lighting loop_nodes only; bot_check, edge, gateway and orchestrator are verified in frames not to re-light",
         "Each cycle emits exactly one token, which flies the reply rail to the chat and reveals exactly one more word; tokens_emitted is the only driver of answer.reveal and the beat asserts it ends equal to answer.word_count",
         "The last six cycles accelerate, halving in duration, and read as a machine speeding up rather than as the animation giving up",
-        "Runtime is within 50 +/- 1.5s"
+        "Runtime is at or under a HARD 60.0s cap (not 60 +/- anything): the narration pass spent 9.27s of the 50s cut's headroom on holds. Measured at the final profile with ffprobe.",
+        "The pull-back's extra time is spent on the request lap (REQUEST_LAP_RUN_TIME 1.6 -> 2.2), the caption holds and the four EXPLICIT cycles (0.38 -> 0.56 lap) - never on adding a cycle, never on CYCLES_FAST, whose halving ramp is what makes the acceleration read as acceleration"
       ]
     },
     {
       "id": "voiceover-pass",
       "priority": 8,
-      "title": "Lock timing against a recorded voice-over",
-      "status": "planned",
+      "title": "Lock timing against the narration",
+      "status": "in_progress",
       "acceptance": [
-        "Narration in script.md is recorded and its per-beat timings measured",
+        "Narration in script.md fits the cut: <=135 words, mapped beat by beat, with the holds placed where each line lands - done at 131 words. Recording it and measuring the real per-beat timings is still open.",
         "run_time values are adjusted so beats land on the narration, not the other way round",
-        "Total runtime stays within 10% of 45s"
-      ]
+        "Total runtime stays at or under the hard 60.0s cap",
+        "Holds are added as stillness after content lands (bare self.wait), never by slowing a camera move or an entrance, and never in the middle of one"
+      ],
+      "note": "Half done. This pass CUT the script to the film (315 -> 131 words) and placed 9.27s of holds where those lines land, under the user's hard 60.0s cap. No voice has been recorded, so the per-beat timings are placed against a read-aloud estimate at 150-165 wpm, not against a measured waveform. The remaining criteria are the recording itself."
     },
     {
       "id": "probability-typography",

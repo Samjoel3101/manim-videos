@@ -1,17 +1,28 @@
-"""The whole video: one continuous 45-second shot through the request lifecycle.
+"""The whole video: one continuous 60-second shot through the request lifecycle.
 
 No cuts. The set (`lifecycle_set.py`) is built once and the camera flies through
 it — out along the top band, down the right into the inference stack, back along
 the bottom, and all the way out at the end so the viewer recognises the plant
 they have just walked through as a single closed circuit.
 
-Pacing is deliberate and tight: every `run_time` below is part of a 50s budget
+Pacing is deliberate and tight: every `run_time` below is part of a 60s budget
 laid out in `../script.md`, and changing one means re-balancing its neighbours.
 The beats are grouped with their target timecodes in the `# ===` comments. Those
 are the arithmetic sum of the `run_time`s below — what a re-timer needs — and the
 shipped cut runs a little longer than their total, because Manim rounds every
-play up to a whole frame and there are about seventy of them. The measured figure
+play up to a whole frame and there are about ninety of them. The measured figure
 is in `scenes.json`.
+
+**The bare `self.wait(...)` calls are narration holds, and they are load-bearing
+timing, not padding.** The cut went from 50.25s to 59.52s nominal so that the
+script in `../script.md` has somewhere to land, and the time was added as
+*stillness after the content lands* rather than as slower motion: a camera move
+or an entrance stretched by a third reads as sluggish, whereas the same move
+followed by a beat of stillness reads as deliberate. Each hold is placed after
+the thing its sentence describes has settled — a hold that starts while
+something is still moving reads as a stall. 60.0s is a hard cap; if a hold has
+to give, take it from the client and after beats, which are the two whose
+narration is shortest.
 
 The through-line is a single payload that is never destroyed, only transformed:
 
@@ -133,7 +144,15 @@ LOOP_REST_GLOW = 0.5
 #: home and reveal exactly one word. The emit time is the set's EMIT_RUN_TIME
 #: because `validate()` budgets that flight's comet chords against it — the two
 #: must not drift.
-CYCLES_EXPLICIT = ((0.38, EMIT_RUN_TIME),) * 4
+#:
+#: The lap went 0.38 → 0.56 for the narration pass. These four are exactly the
+#: cycles the narration sits on ("the answer is a loop between three bays"), and
+#: they are the only cycles in the beat that may be slowed: `CYCLES_FAST` below
+#: is a halving ramp whose shape IS the acceleration, and stretching it would
+#: flatten the one thing that reads as the machine speeding up. Adding cycles
+#: instead of lengthening them is also forbidden — eleven words, eleven tokens,
+#: asserted at the end of the beat.
+CYCLES_EXPLICIT = ((0.56, EMIT_RUN_TIME),) * 4
 
 #: And then it accelerates. Halving across six passes, which is what makes the
 #: ramp read as a machine speeding up rather than as the animation running out
@@ -164,19 +183,19 @@ class TheLifecycle(MovingCameraScene):
         #: group's own (transparent) rgba onto its children.
         self.parcel: list = []
 
-        self.beat_client()             # 0.00 → 4.59
-        self.beat_edge()               # 4.59 → 8.79
-        self.beat_gateway()            # 8.79 → 12.59
-        self.beat_orchestrator()       # 12.59 → 17.79
-        strip = self.beat_tokenize()   # 17.79 → 21.59
-        self.beat_prefill(strip)       # 21.59 → 25.44
-        self.beat_decode()             # 25.44 → 29.44
-        token = self.beat_sample()     # 29.44 → 34.54
-        self.beat_stream(token)        # 34.54 → 38.44
-        self.beat_after()              # 38.44 → 40.39
-        self.beat_pull_back()          # 40.39 → 50.25
+        self.beat_client()             # 0.00 → 4.84
+        self.beat_edge()               # 4.84 → 9.39
+        self.beat_gateway()            # 9.39 → 13.54
+        self.beat_orchestrator()       # 13.54 → 20.29
+        strip = self.beat_tokenize()   # 20.29 → 24.49
+        self.beat_prefill(strip)       # 24.49 → 29.59
+        self.beat_decode()             # 29.59 → 34.24
+        token = self.beat_sample()     # 34.24 → 40.79
+        self.beat_stream(token)        # 40.79 → 45.19
+        self.beat_after()              # 45.19 → 47.44
+        self.beat_pull_back()          # 47.44 → 59.52
 
-    # ==================================================== 0.00 → 4.59  client
+    # ==================================================== 0.00 → 4.84  client
     def beat_client(self) -> None:
         """Type it, send it, and watch the browser build a whole document."""
         chat = self.set.chat
@@ -241,6 +260,11 @@ class TheLifecycle(MovingCameraScene):
             run_time=0.9,
             rate_func=motion.ENTER,
         )
+        # Narration hold: "You hit send." The card has landed and the camera has
+        # stopped, so the frame the viewer reads is the finished request, not a
+        # request still assembling. The smallest hold in the film, because this
+        # beat's line is the shortest and the cap is hard.
+        self.wait(0.25)
 
         # The message becomes a physical thing the moment it is posted.
         self.packet = Dot(radius=0.13, color=theme.USER)
@@ -266,7 +290,7 @@ class TheLifecycle(MovingCameraScene):
         )
         self.remove(card)
 
-    # ================================================= 4.59 → 8.79  edge tier
+    # ================================================= 4.84 → 9.39  edge tier
     def beat_edge(self) -> None:
         """Prove you are not a bot, then get scored by the edge."""
         s = self.set
@@ -314,6 +338,11 @@ class TheLifecycle(MovingCameraScene):
             run_time=0.7,
             rate_func=motion.ENTER,
         )
+        # Narration hold: "a firewall, a bot score, a rate limit." All three
+        # ticks are struck and nothing is moving, so the viewer can read the
+        # list while it is being named — which is exactly what a hold placed
+        # BEFORE `pass_all` would not give them.
+        self.wait(0.35)
 
         note = self._note(s.edge, "proxied to the nearest healthy region", W_SERVICE)
         self.play(
@@ -327,7 +356,7 @@ class TheLifecycle(MovingCameraScene):
             rate_func=motion.EXIT,
         )
 
-    # =================================================== 8.79 → 12.59  gateway
+    # ================================================== 9.39 → 13.54  gateway
     def beat_gateway(self) -> None:
         """Who are you, what have you paid for, and how much is left."""
         s = self.set
@@ -368,6 +397,10 @@ class TheLifecycle(MovingCameraScene):
         self.play(
             meter.animate.set_value(0.62), run_time=0.9, rate_func=motion.FEATURE
         )
+        # Narration hold: "what you've paid for." After the meter has stopped,
+        # so the number under it is a figure being read rather than a digit
+        # still morphing.
+        self.wait(0.35)
 
         trace = props.StampChip("trace 7f3a…", color=theme.NETWORK, frame_width=W_SERVICE)
         trace.next_to(self.parcel[-1], UP, buff=theme.PAD_XS)
@@ -381,7 +414,7 @@ class TheLifecycle(MovingCameraScene):
             rate_func=motion.EXIT,
         )
 
-    # ============================================== 12.59 → 17.79  orchestrator
+    # ============================================== 13.54 → 20.29  orchestrator
     def beat_orchestrator(self) -> None:
         """The biggest beat: the part that is not the model at all."""
         s = self.set
@@ -472,6 +505,13 @@ class TheLifecycle(MovingCameraScene):
             run_time=0.9,
             rate_func=motion.FEATURE,
         )
+        # The film's longest hold outside the pull-back, and the beat that most
+        # needed one: "your question ends up the last few tokens of four
+        # thousand" is the one claim here that the picture cannot make on its
+        # own. It lands with the bar built, the sliver emphasised and the
+        # caption already up — everything the sentence refers to is on screen
+        # and still.
+        self.wait(1.0)
 
         badges = VGroup(
             props.StampChip(
@@ -484,6 +524,10 @@ class TheLifecycle(MovingCameraScene):
         ).arrange(RIGHT, buff=theme.PAD_SM)
         badges.next_to(note, DOWN, buff=theme.PAD_SM)
         self.play(motion.enter(badges, scale=0.8), run_time=0.6, rate_func=motion.ENTER)
+        # Second hold: the routing badges are the tail of the same sentence and
+        # they arrive staggered, so the frame is not settled until after the
+        # entrance finishes.
+        self.wait(0.55)
 
         # The packet drops to the bay's bottom edge, which is where the rail
         # into the machine starts. Doing it here rather than at the top of the
@@ -501,7 +545,7 @@ class TheLifecycle(MovingCameraScene):
         self.remove(*self.parcel[1:])
         self.parcel = [self.packet]
 
-    # ================================================= 17.79 → 21.59  tokenize
+    # ================================================= 20.29 → 24.49  tokenize
     def beat_tokenize(self):
         """Into the machine, and out of language."""
         s = self.set
@@ -559,6 +603,10 @@ class TheLifecycle(MovingCameraScene):
             rate_func=motion.ENTER,
         )
         self.add(strip)
+        # Narration hold: "That's cut into tokens." Short line, short hold — but
+        # it is also where the orchestrator's longer sentence finishes, which is
+        # why this beat keeps a little more slack than its own line needs.
+        self.wait(0.4)
 
         note = self._note(station, "sub-word pieces → integer ids", W_TIGHT, tight=True)
         self.play(
@@ -572,7 +620,7 @@ class TheLifecycle(MovingCameraScene):
         )
         return strip
 
-    # ============================================== 21.59 → 25.44  prefill / KV
+    # ============================================== 24.49 → 29.59  prefill / KV
     def beat_prefill(self, strip) -> None:
         """Most of this prompt has been computed before, for somebody else."""
         s = self.set
@@ -634,6 +682,11 @@ class TheLifecycle(MovingCameraScene):
             run_time=0.8,
             rate_func=motion.FEATURE,
         )
+        # Narration hold: "Most of this prompt is already cached." The cache is
+        # the first thing in the film a viewer cannot read off the frame, so the
+        # bar gets a beat of stillness with the tail emphasised before the
+        # second caption replaces the first.
+        self.wait(0.75)
         after = self._note(
             station,
             "the prefix is identical for everyone — its keys and values are reused",
@@ -646,6 +699,10 @@ class TheLifecycle(MovingCameraScene):
             run_time=0.35,
             rate_func=motion.ENTER,
         )
+        # "Only the tail is computed." The second caption is two lines of small
+        # type at a tight shot and used to be on screen for 0.35s — long enough
+        # to notice, not to read.
+        self.wait(0.5)
         self.play(
             FadeOut(after),
             FadeOut(bar),
@@ -654,7 +711,7 @@ class TheLifecycle(MovingCameraScene):
             rate_func=motion.EXIT,
         )
 
-    # ================================================ 25.44 → 29.44  decode loop
+    # ================================================ 29.59 → 34.24  decode loop
     def beat_decode(self) -> None:
         """One token per step — and you are sharing the machine."""
         s = self.set
@@ -719,6 +776,10 @@ class TheLifecycle(MovingCameraScene):
             rate_func=motion.ENTER,
         )
         self.play(meter.animate.set_value(0.83), run_time=0.65, rate_func=motion.MOVE)
+        # Narration hold: "sharing the machine with strangers." Placed after the
+        # meter settles and after the three stack pulses, so nothing in frame is
+        # mid-flash while the batch is being described.
+        self.wait(0.65)
 
         self.play(
             FadeOut(note),
@@ -729,7 +790,7 @@ class TheLifecycle(MovingCameraScene):
             rate_func=motion.EXIT,
         )
 
-    # =================================================== 29.44 → 34.54  sampling
+    # =================================================== 34.24 → 40.79  sampling
     def beat_sample(self):
         """A score for every word it knows. One gets picked."""
         s = self.set
@@ -783,6 +844,10 @@ class TheLifecycle(MovingCameraScene):
             run_time=0.4,
             rate_func=motion.SNAP,
         )
+        # Narration hold: "One word is picked". After the Flash, not during it —
+        # a Flash leaves rays on screen for its whole run_time, and a hold that
+        # started underneath one would read as the animation having jammed.
+        self.wait(0.45)
 
         # -- the loop, shown where the viewer can see it happen ---------------
         # This is where the film teaches the mechanism; the pull-back only has
@@ -846,6 +911,12 @@ class TheLifecycle(MovingCameraScene):
             run_time=0.3,
             rate_func=motion.SNAP,
         )
+        # The second-longest hold in the film, on the beat that carries the
+        # film's mechanism: "it goes two ways — out to you, and back into the
+        # cache". The copy has arrived, the prefill bay is lit and the two-line
+        # caption under the sampler is up, so the whole loop is on screen and
+        # still while the sentence names it.
+        self.wait(1.0)
         self.play(
             FadeOut(loop_note),
             s.glow_for(s.prefill).animate.set_stroke(opacity=s.resting_glow),
@@ -859,7 +930,7 @@ class TheLifecycle(MovingCameraScene):
         )
         return winner
 
-    # ================================================ 34.54 → 38.44  stream back
+    # ================================================ 40.79 → 45.19  stream back
     def beat_stream(self, token) -> None:
         """Detokenise, check, and push it down the wire as it is written."""
         s = self.set
@@ -986,8 +1057,12 @@ class TheLifecycle(MovingCameraScene):
             run_time=0.2,
             rate_func=motion.ENTER,
         )
+        # Narration hold: "pushed down the wire." The first word of the reply is
+        # the payoff of the previous forty seconds and it used to be on screen
+        # for a fifth of a second before the camera swung away to the after bay.
+        self.wait(0.5)
 
-    # ==================================================== 38.44 → 40.39  after
+    # ==================================================== 45.19 → 47.44  after
     def beat_after(self) -> None:
         """And a copy goes somewhere else entirely."""
         s = self.set
@@ -1041,6 +1116,10 @@ class TheLifecycle(MovingCameraScene):
             run_time=0.5,
             rate_func=motion.ENTER,
         )
+        # Narration hold: "stored, counted, billed." The shortest hold of the
+        # three-word lines, and the first place to take time back from if the
+        # measured cut ever creeps over the 60.0s cap.
+        self.wait(0.3)
         self.play(
             FadeOut(checks),
             s.glow_for(s.after).animate.set_stroke(opacity=s.resting_glow),
@@ -1048,7 +1127,7 @@ class TheLifecycle(MovingCameraScene):
             rate_func=motion.EXIT,
         )
 
-    # =============================================== 40.39 → 50.25  whole plant
+    # =============================================== 47.44 → 59.52  whole plant
     def beat_pull_back(self) -> None:
         """All the way out — and then the asymmetry the whole film is about.
 
@@ -1080,6 +1159,12 @@ class TheLifecycle(MovingCameraScene):
             run_time=1.3,
             rate_func=motion.FEATURE,
         )
+        # Narration hold: the plant, whole and still, before anything moves in
+        # it. Ten wide labels have just cross-faded in and there is nothing to
+        # gain by starting the lap underneath them — this is the one moment the
+        # film is a diagram rather than a journey, and the line that follows
+        # ("the request crosses the plant once") is about the diagram.
+        self.wait(0.5)
 
         # -- ONE lap of the whole plant --------------------------------------
         # The full circuit, once, because it IS crossed once — outbound by the
@@ -1182,7 +1267,11 @@ class TheLifecycle(MovingCameraScene):
             "reveal."
         )
         self.play(FadeOut(caption), run_time=0.25, rate_func=motion.EXIT)
-        self.wait(0.5)
+        # The last hold: the caption is gone, the eleven words are in the bubble
+        # and the plant is at rest. "Nothing upstream is asked twice" lands here,
+        # on a frame with nothing in it but the finished answer and the machine
+        # that made it. 0.5 → 0.9.
+        self.wait(0.9)
 
     def _token_cycle(self, cycle, home, lap: float, emit: float, *,
                      comet: bool) -> None:

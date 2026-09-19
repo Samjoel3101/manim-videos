@@ -321,3 +321,86 @@ STILL WEAK
     belongs in a session of its own.
   - probability-typography is still open and the decode beat's meter still
     prints its value over the bar's right edge at this shot width.
+
+================================================================================
+SESSION (eleventh): narration holds, and the script cut to fit them
+================================================================================
+The ask was "add holds so the narration has somewhere to land", under a HARD
+60.0s cap set by the user. The first thing the plan established is that this is
+not a timing job:
+
+  script.md carried 315 words of narration. At 150-165 wpm that is 115-126
+  SECONDS of speech. The film was 50.1s and may reach 60.0s. The script needed
+  roughly TWICE the entire budget.
+
+So the deliverable is an editorial cut of the script, not a stretch of the film.
+The narration is now 131 words (~50s at 155 wpm), mapped beat by beat in
+script.md with the count printed there. What went is everything the picture
+already makes: the contents of the request card, the names of the sampling
+knobs, the itemised prompt, the jobs the epilogue queues. What stayed is what
+the frame cannot say on its own - the cache, the loop, and the asymmetry
+between crossing the plant once and looping inside it.
+
+WHAT WAS ADDED, AND HOW
+  +9.27s of holds, 50.25 -> 59.52 nominal. Every one is a bare self.wait(t)
+  placed AFTER the content its line describes has landed, with a comment naming
+  the line it carries. Not one run_time on a camera move or an entrance was
+  stretched: a move slowed by a third reads as sluggish, the same move followed
+  by stillness reads as deliberate. The two biggest are 1.0s on the
+  orchestrator's emphasised 7-token sliver and 1.0s on the sampler once the
+  copy has joined the cache - the two claims a viewer cannot read off the frame.
+
+  The pull-back took +2.22s WITHOUT gaining a cycle:
+    - REQUEST_LAP_RUN_TIME 1.6 -> 2.2 (in the set, where validate() budgets its
+      chords; a SLOWER lap only makes that budget finer, never coarser)
+    - CYCLES_EXPLICIT lap 0.38 -> 0.56, the four cycles the viewer counts
+    - +0.5s holding the whole plant before the lap, +0.4s on the final frame
+  CYCLES_FAST was NOT touched. Its halving ramp is what makes the acceleration
+  read as acceleration and flattening it would undo the tenth session's fix.
+  EMIT_RUN_TIME stayed at 0.40 because it is budgeted against validate()'s chord
+  assertion - the two are commented as a pair and neither moved.
+
+MEASURED, NOT ASSUMED
+  final profile: 59.398698 s (ffprobe), 3564 frames at 60fps. The cap is 60.0
+  and this is a ceiling, not a tolerance. Nominal sum 59.52; the render comes in
+  0.12 under it, as it did at 50s.
+
+  EVERY HOLD WAS VERIFIED TO BE STILL, by pixel diff rather than by eye. A
+  frame-to-frame mean-absolute-difference pass over the whole render (320x180
+  grey, threshold 0.02) lists the exactly-static runs; all fifteen holds appear
+  as runs of exactly their own length:
+    client 0.25 / edge 0.35 / gateway 0.35 / orch 1.00 + 0.55 / tokenize 0.40 /
+    prefill 0.75 + 0.50 / decode 0.65 / sample 0.45 + 1.00 / stream 0.50 /
+    after 0.30 / pull-back 0.50 / final 0.90
+  A hold that had started mid-entrance would have shown up as a shorter static
+  run than the wait, or none at all. None did.
+
+  TOKEN/WORD INVARIANT RE-VERIFIED IN FRAMES. Eleven crops of the chat bubble,
+  one per completed cycle: A / A dozen / A dozen machines / touch / it / before /
+  the / first / word / comes / back. Words revealed == cycles completed at every
+  sample, and the assertion at the end of the beat still fires.
+
+  That same still-run pass exposes something worth knowing for the next re-time:
+  the REAL timeline runs about 0.22-0.26s AHEAD of the nominal timecodes,
+  because ChatWindow.type_animation at cps=17 finishes faster than the 1.71s the
+  budget assumes. The timecode comments are the arithmetic sum of the run_times,
+  as documented, so they stay - but if you are pulling a still at a named
+  timecode, subtract a quarter of a second.
+
+STILL WEAK
+  - No voice is recorded. The per-beat word budget is an estimate at 150-165
+    wpm, not a measurement of a waveform, so voiceover-pass is in_progress, not
+    passing. Three lines deliberately run a little past their own beat into the
+    next one's slack (orchestrator -> tokenizer, prefill -> decode, sampler ->
+    stream); a real recording may want those beats rebalanced by a few tenths.
+  - The film is now 19% longer with no new content. It does not read as slack -
+    the holds land on emphasised content, not on empty frames, and the longest
+    single hold is 1.0s - but "deliberate" and "slow" are a judgement, and this
+    is the change most likely to want a human eye before it ships.
+  - The prefill caption "only the new tail is computed" sits across the rail
+    chevron between the prefill and decode bays. Pre-existing, now on screen for
+    1.25s longer, so it is more visible than it was. It belongs to the caption
+    placement in the 0.6 in-box gap, not to this pass.
+  - shot-pullback's title still says 41-50s in feature_list.json's TEXT of older
+    criteria; the runtime criterion itself was updated to the 60.0s cap and the
+    title to 41-60s. Nothing was deleted - two criteria were added.
