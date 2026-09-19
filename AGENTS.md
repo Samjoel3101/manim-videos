@@ -47,18 +47,30 @@ was invisible to the gates and caught by a fresh pair of eyes.
 
 ## How a change is made — mandatory
 
-**Plan → delegate → review → verify.** This applies to *every* change to this
+**Plan → size it → build → review → verify.** Applies to *every* change to this
 repo. Answering a question or read-only investigation is not a change.
 
 1. **Plan first, in detail**, from the code rather than from memory. Write it to
-   a file.
-2. **Hand the plan to a subagent to implement.** The planning session does not
-   write the implementation itself.
-3. **A separate subagent reviews the result** — one that did not write it.
+   a file. **This step is never skipped, whatever the change is worth.**
+2. **Size the change while planning**, and record the call in the plan:
+   - **Small** — one or two files, no new module or public API, no new test or
+     baseline, verified by a gate run rather than by reading frames, and
+     statable in a few sentences → **build it yourself.**
+   - **Large** — spans several files or modules, adds a feature, scene, beat or
+     `/lib` component, needs new tests or a baseline, needs a render and a frame
+     review to prove, or has parts that have to land in order → **hand the plan
+     to a subagent to implement.**
+   - On the boundary, **delegate**. Delegating a small change costs time;
+     building a large one yourself removes the independent check that this
+     whole section exists to provide.
+3. **Review.** Delegated work always gets a separate reviewing subagent — one
+   that did not write it. Self-built work gets one too if it touches `/lib` or
+   anything already shipped in `assets/`.
 4. **Verify the headline claims yourself.** A subagent's report is a claim, not
-   a fact.
+   a fact. This holds for your own work as well: run the Evaluator, look at the
+   frames.
 
-Full protocol, including what a plan must contain and how to brief each
+Full protocol — what a plan must contain, how to size it, how to brief each
 subagent: `docs/session-playbook.md` → "Plan, delegate, review".
 
 Nothing here licenses skipping the Evaluator, editing a protected path, or

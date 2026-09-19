@@ -62,6 +62,50 @@ that is worth handing over states:
 Write it to a file. The implementer and the reviewer then read the same text
 instead of two paraphrases of it.
 
+**Plan every change, including the ones you will build yourself.** The plan is
+what lets you size the work honestly; deciding to do something quickly *before*
+working out what it involves is how a "one-line fix" turns into six files and no
+tests.
+
+### 1b. Size it, and write the call down
+
+The last thing the plan does is decide who builds it. State the verdict and the
+reason in the plan, so the next session can see the judgement rather than guess
+at it.
+
+**Build it yourself** when *all* of these hold:
+
+- one or two files;
+- no new module, component or public API;
+- no new test and no baseline to approve;
+- the Evaluator is sufficient proof — you do not need to render and read frames;
+- you can state the entire change in a few sentences without losing a part.
+
+Typical: a status flag in `feature_list.json`, a docstring, a caption's wording,
+a constant retuned within an existing beat, a progress-log entry.
+
+**Delegate** when *any* of these hold:
+
+- it spans several files or modules;
+- it adds a feature, a scene, a beat, or a `/lib` component;
+- it needs a new test, or a baseline approved;
+- proving it correct needs a render and a frame review;
+- it has parts that must land in a particular order, or that interact;
+- the plan is long enough that you would not hold it all in your head while
+  writing the code.
+
+Typical: a new video, a new component with its tests, a re-timed beat sequence,
+anything that changes what the film *asserts*.
+
+**On the boundary, delegate.** The two failure modes are not symmetric.
+Delegating something small costs some minutes. Building something large yourself
+removes the independent check at every one of the three points — decide, build,
+judge — which is the entire reason this section exists.
+
+Sizing is a judgement about the *change*, not about how confident you feel. "I
+know exactly what to do here" is not evidence that the work is small; it is
+usually evidence that you have not yet found what you are wrong about.
+
 ### 2. Delegate
 
 Hand the plan's path to a subagent. Give it the repo rules, the exact commands,
@@ -74,6 +118,10 @@ frequently wrong about sizes and timings; a good implementer measures, finds the
 plan's error, and says so. Ask for those departures with reasons.
 
 ### 3. Review
+
+Always, for delegated work. For work you built yourself, when it touches `/lib`
+or anything already shipped in `assets/` — those are the changes whose blast
+radius reaches past the thing in front of you.
 
 A second subagent, which did not write the code. Give it the implementer's
 specific claims and ask it to check them — "verify this list" produces a sharper

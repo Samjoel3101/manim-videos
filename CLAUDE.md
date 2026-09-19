@@ -1,10 +1,15 @@
 Read `AGENTS.md`. It is the map for this repo and applies in full here.
 
 **"How a change is made" in `AGENTS.md` is mandatory and applies to every change
-in this repo.** Plan in detail → hand the plan to a subagent to implement →
-have a separate subagent review it → verify the headline claims yourself. You do
-not write the implementation. Answering a question or investigating something
-read-only is not a change and does not need the loop.
+in this repo.** Plan in detail → size the change → build or delegate → review →
+verify the headline claims yourself. Answering a question or investigating
+something read-only is not a change and does not need the loop.
+
+**Plan every time; delegate when the change is large.** One or two files, no new
+module, no new test, provable by a gate run — build it yourself. A feature, a
+new component, several files, anything needing a render and a frame review to
+prove, anything with parts that land in order — hand the plan to a subagent. On
+the boundary, delegate. Size it *in* the plan, not before writing one.
 
 Claude-Code mechanics for that loop:
 
