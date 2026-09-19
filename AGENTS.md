@@ -33,9 +33,48 @@ runs), `docs/component-guide.md` (how to write a `/lib` component),
 
 ## Roles
 
-**Generator** — builds scenes and components. **Evaluator** — `scripts/evaluate.py`,
-which the generator runs but may not edit. The split exists because an agent that
-can change both the work and its grading can pass by weakening the check.
+**Planner** — reads the request and the code, decides what to build, and writes
+the plan. **Generator** — builds scenes and components from that plan.
+**Reviewer** — checks the built result against the plan and against reality.
+**Evaluator** — `scripts/evaluate.py`, which the generator runs but may not edit.
+
+The Generator/Evaluator split exists because an agent that can change both the
+work and its grading can pass by weakening the check. The Planner/Generator and
+Generator/Reviewer splits exist for the same reason one step out: an agent that
+decides what to build, builds it, and then judges its own build has no
+independent check on any of the three. Every real defect this repo has shipped
+was invisible to the gates and caught by a fresh pair of eyes.
+
+## How a change is made — mandatory
+
+**Plan → size it → build → review → verify.** Applies to *every* change to this
+repo. Answering a question or read-only investigation is not a change.
+
+1. **Plan first, in detail**, from the code rather than from memory. Write it to
+   a file. **This step is never skipped, whatever the change is worth.**
+2. **Size the change while planning**, and record the call in the plan:
+   - **Small** — one or two files, no new module or public API, no new test or
+     baseline, verified by a gate run rather than by reading frames, and
+     statable in a few sentences → **build it yourself.**
+   - **Large** — spans several files or modules, adds a feature, scene, beat or
+     `/lib` component, needs new tests or a baseline, needs a render and a frame
+     review to prove, or has parts that have to land in order → **hand the plan
+     to a subagent to implement.**
+   - On the boundary, **delegate**. Delegating a small change costs time;
+     building a large one yourself removes the independent check that this
+     whole section exists to provide.
+3. **Review.** Delegated work always gets a separate reviewing subagent — one
+   that did not write it. Self-built work gets one too if it touches `/lib` or
+   anything already shipped in `assets/`.
+4. **Verify the headline claims yourself.** A subagent's report is a claim, not
+   a fact. This holds for your own work as well: run the Evaluator, look at the
+   frames.
+
+Full protocol — what a plan must contain, how to size it, how to brief each
+subagent: `docs/session-playbook.md` → "Plan, delegate, review".
+
+Nothing here licenses skipping the Evaluator, editing a protected path, or
+approving a baseline without looking at the render.
 
 ### Rules for the Generator
 

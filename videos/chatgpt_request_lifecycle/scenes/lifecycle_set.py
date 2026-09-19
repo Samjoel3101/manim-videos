@@ -87,12 +87,30 @@ SHOT_TIGHT_OUTER = 16.0
 #: nothing else would say so.
 SHOT_WIDE = 58.0
 
-#: How long one end-of-film loop takes. It lives HERE rather than in the scene
-#: because `validate()` budgets its chord-clearance assertion against it: a
-#: comet is sampled once per frame and joined with straight chords, so a faster
-#: loop cuts corners harder. Keeping the number in one place is what stops the
-#: assertion silently checking a shot that no longer exists.
-LOOP_RUN_TIME = 1.35
+#: How long the pull-back's ONE lap of the whole plant takes.
+#:
+#: Renamed from LOOP_RUN_TIME, which is the defect this film shipped with: the
+#: end-of-film runner lapped the entire circuit repeatedly, which says every
+#: token is re-scored at the edge and re-authenticated at the gateway. The plant
+#: is crossed ONCE. What repeats is `decode_cycle()`, inside the box.
+#:
+#: It lives HERE rather than in the scene because `validate()` budgets its
+#: chord-clearance assertion against it: a comet is sampled once per frame and
+#: joined with straight chords, so a faster lap cuts corners harder. Keeping the
+#: number in one place is what stops the assertion silently checking a shot that
+#: no longer exists.
+REQUEST_LAP_RUN_TIME = 1.6
+
+#: How long one emitted token takes to fly the whole way home, in the pull-back's
+#: four EXPLICIT cycles — the slowest thing that draws a comet over
+#: `home_rails()`, and therefore the one `validate()` has to budget chords for.
+#:
+#: The accelerated cycles after those four fly the same path faster than this,
+#: and deliberately carry NO comet: without a trail the payload is sampled onto
+#: the true path every frame and cannot cut a corner at all, so there is nothing
+#: for a chord budget to check. That is the trade — a bare dot at the speed the
+#: beat is about, rather than a trail drawing a straight line across the plant.
+EMIT_RUN_TIME = 0.40
 
 #: Frame rate the chord budget is computed at. The house convention (see the
 #: reference set) is 30 — the `preview` profile — rather than the 15 of the test
@@ -130,6 +148,17 @@ CHECK_SIZE = 1.8
 #: How far left the climb home runs. Left of the chat AND left of the after bay,
 #: with room to spare, so the rail never grazes either — asserted in validate().
 RETURN_X = -30.5
+
+#: The x the autoregressive loop-back rail runs up, inside the box.
+#:
+#: MEASURED, not chosen: the box frame's right edge is at 23.70 and the four
+#: bays stop at 22.80, so the box's inner right margin is exactly 0.90 wide and
+#: completely empty. 23.25 is its midline — 0.45 clear of the bays it passes and
+#: 0.45 clear of the frame it runs inside. `validate()` re-derives both gaps
+#: from the mobjects rather than trusting these numbers, so a change to
+#: BAY_W or to PipelineBox's padding fails at construction instead of drawing a
+#: rail through a bay.
+LOOPBACK_X = 23.25
 
 
 class LifecycleSet(VGroup):
@@ -330,6 +359,40 @@ class LifecycleSet(VGroup):
                 np.array([COLUMN_X, box_bottom, 0.0]),
             ],
         )
+        # -- the autoregressive loop, drawn ------------------------------------
+        # The one rail that makes the film's central claim true. Everything else
+        # in this set is crossed ONCE: the request goes in along the top band and
+        # the answer comes back along the bottom. Only this rail is travelled
+        # again per token, and until it existed the end-of-film runner had
+        # nowhere to lap but the whole plant — which asserts that every token is
+        # re-authenticated at the gateway and re-assembled by the orchestrator.
+        # It is not; decode reads the cache and nothing walks back upstream.
+        #
+        # Sampler → PREFILL/KV, not sampler → decode. The sampled token's keys
+        # and values are appended to the cache and the next step reads the cache,
+        # so routing the return through the KV bay makes the cache the hinge of
+        # the cycle — which is the real mechanism — and reuses the two rails
+        # already drawn (cache→decode, decode→sampler) for the rest of the lap.
+        # The loop the viewer sees is then literally
+        # `KV cache → decode → sample → append → KV cache`.
+        #
+        # It leaves the sampler's RIGHT edge and enters the prefill bay's RIGHT
+        # edge, so the travel order runs bottom-to-top up the margin and the
+        # chevrons point back up at the cache for free — no rotation argument,
+        # nothing to keep in sync with the geometry.
+        self.rail_sample_to_cache = Conveyor(
+            [
+                self.sampler.bay.get_right() + RIGHT * 0.05,
+                np.array([LOOPBACK_X, float(self.sampler.bay.get_center()[1]), 0.0]),
+                np.array([LOOPBACK_X, float(self.prefill.bay.get_center()[1]), 0.0]),
+                self.prefill.bay.get_right() + RIGHT * 0.05,
+            ],
+            # TOKEN, not ASSISTANT: what rides this rail is the sampled token on
+            # its way back into the machine, not a piece of the reply on its way
+            # out. The reply path is the green one along the bottom.
+            color=theme.TOKEN,
+            chevrons=2,
+        )
         # From here on the rails are ASSISTANT green: this is the reply path,
         # and colouring it is what lets the pull-back read as a loop with a
         # direction rather than a wiring diagram.
@@ -374,6 +437,35 @@ class LifecycleSet(VGroup):
         )
         self.return_label.rotate(np.pi / 2)
         self.return_label.move_to(np.array([RETURN_X - 1.1, -1.5, 0.0]))
+
+        # Names the loop-back rail at the pull-back, where the rail is three
+        # pixels of amber and nothing else says what it carries. Rotated and
+        # placed in the box's RIGHT margin by the same `next_to` the box title
+        # uses on the left, so the two read as a pair and neither is a written
+        # -down coordinate that a padding change could invalidate.
+        #
+        # Centred on the loop's own vertical span (sampler → prefill), not on
+        # the box, so the words sit beside the rail they name rather than beside
+        # the tokenizer, which is not in the loop at all.
+        self.loopback_label = typography.text(
+            "label",
+            "append K,V · next token",
+            frame_width=SHOT_WIDE,
+            color=theme.TOKEN,
+        )
+        self.loopback_label.rotate(np.pi / 2)
+        # Clamped to the box's height for the same reason PipelineBox clamps its
+        # own side title: at SHOT_WIDE a `label` role is 1.5 units of cap height,
+        # so twenty-three characters measure 18.2 units end to end against a
+        # 12.8-tall box. Unclamped it hung 4.5 units below the frame and 1.0
+        # above it — a caption longer than the machine it names, crossing the
+        # bottom band. Centring on the loop's own 5.4-unit span was tried and is
+        # worse: the scale that fits puts it at 0.013 of frame height, a third
+        # under typography.MIN_READABLE, i.e. drawn and unreadable.
+        span = float(self.llm.frame.height) * 0.92
+        if self.loopback_label.height > span:
+            self.loopback_label.scale(span / float(self.loopback_label.height))
+        self.loopback_label.next_to(self.llm.frame, RIGHT, buff=theme.PAD_MD)
 
         # -- glow halos --------------------------------------------------------
         # Pre-built and invisible. Lighting a node is the house cue for "this is
@@ -441,10 +533,26 @@ class LifecycleSet(VGroup):
         # Wide-shot labels stay dark until the pull-back: at a close-up they are
         # several times the size of anything else on screen.
         self.wide_labels = VGroup(
-            self.llm.caption, self.return_label, self.check_wide_label
+            self.llm.caption,
+            self.return_label,
+            self.check_wide_label,
+            self.loopback_label,
         )
         self.wide_labels.set_opacity(0.0)
 
+        # DRAW ORDER MATTERS, and it matters in one specific way that cost this
+        # session a render: `PipelineBox.frame` is filled with theme.BG at full
+        # opacity, so every rail that runs INSIDE the box is buried by it unless
+        # it is added afterwards. The four in-box rails — down the midline,
+        # between the bays, out of the bottom, and the loop-back up the right
+        # margin — were added before `self.llm` in the first cut, and the
+        # loop-back rail this film's whole correction rests on rendered as
+        # nothing at all: the runner lapped a path with no visible track under
+        # it. The rails outside the box never showed the problem, which is why
+        # it survived until something was drawn inside.
+        #
+        # The stations come last of all, so a rail terminates neatly under the
+        # bay edge it feeds rather than over it.
         self.add(
             halos,
             self.rail_chat_to_check,
@@ -452,15 +560,18 @@ class LifecycleSet(VGroup):
             self.rail_edge_to_gateway,
             self.rail_gateway_to_orch,
             self.rail_orch_to_box,
-            self.rail_into_column,
-            self.rails_between_stations,
-            self.rail_out_of_column,
             self.rail_box_to_stream,
             self.rail_stream_home,
             self.rail_after_spur,
             self.return_label,
             self.check_wide_label,
+            self.loopback_label,
             self.llm,
+            # --- inside the box, so after the box ---
+            self.rail_into_column,
+            self.rails_between_stations,
+            self.rail_out_of_column,
+            self.rail_sample_to_cache,
             *self._stations(),
             self.bot_check,
             self.chat,
@@ -482,7 +593,14 @@ class LifecycleSet(VGroup):
 
     @property
     def nodes(self) -> list:
-        """Everything that can light up, in flow order."""
+        """Everything that can light up, in flow order.
+
+        An INVENTORY, not a loop. Lighting all ten of these on a repeating
+        runner is the bug this film shipped with: it says every token is
+        re-scored at the edge, re-authenticated at the gateway and re-assembled
+        by the orchestrator. For a repeating pass use :attr:`loop_nodes`; for
+        the one journey in, :attr:`request_nodes`.
+        """
         return [
             self.bot_check,
             self.edge,
@@ -495,6 +613,35 @@ class LifecycleSet(VGroup):
             self.stream,
             self.after,
         ]
+
+    @property
+    def request_nodes(self) -> list:
+        """The nodes the request crosses ONCE, on the way in.
+
+        Prefill is deliberately not here even though the request's first pass
+        goes through it: prefill is where the request stops being a request and
+        becomes a cache, and it is the top of the loop. Splitting it this way is
+        what lets the pull-back light this list once and then leave it resting
+        while :attr:`loop_nodes` runs over and over.
+        """
+        return [
+            self.bot_check,
+            self.edge,
+            self.gateway,
+            self.orchestrator,
+            self.tokenizer,
+        ]
+
+    @property
+    def loop_nodes(self) -> list:
+        """The three bays a decode step actually touches, in cycle order.
+
+        KV cache → decode → sample, and then the sampled token's keys and
+        values go back to the cache along `rail_sample_to_cache`. Nothing
+        outside the box is in this list because nothing outside the box is in
+        the loop.
+        """
+        return [self.prefill, self.decode, self.sampler]
 
     # ------------------------------------------------------------- validation
     def validate(self) -> None:
@@ -525,9 +672,9 @@ class LifecycleSet(VGroup):
         #    fast cuts across things the underlying path never touches — which
         #    `path_clears` cannot see, because it walks the true curve. Budget
         #    the check at the frames this stretch actually receives: the loop
-        #    runs the WHOLE circuit in LOOP_RUN_TIME, so the way home gets its
+        #    runs the WHOLE circuit in REQUEST_LAP_RUN_TIME, so the way home gets its
         #    share of those frames, not all of them.
-        total_frames = LOOP_FPS * LOOP_RUN_TIME
+        total_frames = LOOP_FPS * REQUEST_LAP_RUN_TIME
         circuit_len = routing.length(self.circuit())
         home_len = routing.length(self.rail_stream_home)
         home_frames = max(6, int(total_frames * home_len / circuit_len))
@@ -621,6 +768,14 @@ class LifecycleSet(VGroup):
             ("the bot check wide label", self.check_wide_label),
             ("the box title", self.llm.caption.copy().rotate(-np.pi / 2)),
             ("the return label", self.return_label.copy().rotate(-np.pi / 2)),
+            # Rotated, so audited through an unrotated copy like the other two:
+            # `typography.measure` compares a bounding-box HEIGHT against the
+            # frame, and for a label turned on its side that height is the
+            # length of the words, which passes trivially and means nothing.
+            (
+                "the loop-back label",
+                self.loopback_label.copy().rotate(-np.pi / 2),
+            ),
         ]
         unreadable = typography.audit(items, SHOT_WIDE)
         if unreadable:
@@ -631,6 +786,69 @@ class LifecycleSet(VGroup):
                 "Shorten the text or give the bay more room — do not reach for "
                 "a bigger role, because the clamp inside Station will undo it."
             )
+
+        # 7. The loop-back rail runs INSIDE the box, up a margin 0.90 wide.
+        #    `assert_path_clears` cannot express that — the box frame is an
+        #    obstacle the rail is deliberately inside of, so the generic check
+        #    would fire on the one thing that is correct. The two gaps that
+        #    actually matter are measured instead, and they are measured off the
+        #    mobjects so a change to BAY_W or to PipelineBox's padding trips this
+        #    rather than quietly drawing a rail through a bay.
+        rail_x = float(self.rail_sample_to_cache.path.get_right()[0])
+        bay_gap = rail_x - float(self.sampler.bay.get_right()[0])
+        frame_gap = float(self.llm.frame.get_right()[0]) - rail_x
+        for name, gap in (("the bays", bay_gap), ("the box frame", frame_gap)):
+            if gap < 0.25:
+                raise AssertionError(
+                    f"the loop-back rail clears {name} by only {gap:.3f}. It "
+                    "runs up the box's inner right margin, which is "
+                    f"{float(self.llm.frame.get_right()[0]) - float(self.sampler.bay.get_right()[0]):.2f} "
+                    "wide; at this range it reads as drawn ON the bay edge "
+                    "rather than as a return path. Move LOOPBACK_X, or widen "
+                    "the box's pad."
+                )
+        # And the label that names it must sit OUTSIDE the frame, or the film's
+        # one new caption is printed across the sampler's wide label.
+        label_gap = (
+            float(self.loopback_label.get_left()[0])
+            - float(self.llm.frame.get_right()[0])
+        )
+        if label_gap < 0.1:
+            raise AssertionError(
+                f"the loop-back label overlaps the box frame by "
+                f"{-label_gap:.3f}. It belongs in the right margin, mirroring "
+                "the box title in the left one."
+            )
+
+        # 8. The cycle must CLOSE. A runner laps this once per token, so a gap
+        #    between the last point and the first is not a rounding detail — it
+        #    is a visible teleport, once per token, ten times in four seconds.
+        #    routing.join welds segments within its own tolerance; if the ends
+        #    do not meet within that same tolerance, nothing welds them and the
+        #    lap is open.
+        cycle = self.decode_cycle()
+        gap = float(np.linalg.norm(cycle.get_start() - cycle.get_end()))
+        if gap > 0.05:
+            raise AssertionError(
+                f"decode_cycle() does not close: its ends are {gap:.3f} apart. "
+                "The pull-back laps this path once per generated token, so the "
+                "payload would jump that distance ten times in four seconds. "
+                "The loop-back rail must land on the same point the in-bay "
+                "prefill run starts from."
+            )
+
+        # 9. The pull-back emits one token per cycle and flies each one the
+        #    whole way home with a comet, at EMIT_RUN_TIME — three times faster
+        #    than the streaming beat does it. Fast comets cut corners, so budget
+        #    the chords at the frames that flight actually gets. The stream bay
+        #    is excluded because the flight deliberately runs THROUGH it, which
+        #    is the one thing on that path it is supposed to touch.
+        emit_path = routing.join(*self.home_rails())
+        emit_obstacles = [o for o in obstacles if o[1] is not self.stream.bay]
+        emit_frames = max(6, int(LOOP_FPS * EMIT_RUN_TIME))
+        routing.assert_trail_clears(
+            emit_path, emit_obstacles, steps=emit_frames, ignore_ends=0.05
+        )
 
     def wide_frame_width(self, pad: float = 1.0) -> float:
         """Camera width the final pull-back needs to frame everything.
@@ -673,6 +891,52 @@ class LifecycleSet(VGroup):
             # band runs the other way.
             [self.stream.bay.get_right(), self.stream.bay.get_left()],
             self.rail_stream_home,
+        )
+
+    def decode_cycle(self):
+        """One autoregressive step: KV cache → decode → sample → append → repeat.
+
+        The counterpart to :meth:`circuit`, and the reason the two exist
+        separately. `circuit()` is the request's ONE journey through the plant.
+        This is the loop that runs once per generated token, and it never leaves
+        the box: a decode step takes the previously generated token, attends to
+        the cached keys and values, emits one token, and appends that token's own
+        K/V to the cache. The client, the edge, the gateway and the orchestrator
+        are not in it.
+
+        Built by joining the DRAWN rails, exactly as `circuit()` is, so the lap
+        and the diagram cannot disagree. Both in-bay runs at the ends of the loop
+        are L-shaped for the same reason the orchestrator's is: the prefill bay
+        is entered from the right (off the loop-back rail) and left downward, and
+        the sampler bay is entered from the top and left rightward onto the
+        loop-back rail. A straight left-to-right run would have the payload exit
+        the far side of a bay and double back.
+
+        It CLOSES: the last point is the first point, so a runner can lap it any
+        number of times without the jump that a gap would produce once per token.
+        `validate()` asserts that, because a loop that does not close is a
+        teleport the viewer sees and no test does.
+        """
+        return routing.join(
+            # in-bay prefill: in from the loop-back rail, out downward
+            [
+                self.prefill.bay.get_right() + RIGHT * 0.05,
+                self.prefill.bay.get_center(),
+                self.prefill.bay.get_bottom() + DOWN * 0.05,
+            ],
+            self.rails_between_stations[1],  # prefill → decode
+            [
+                self.decode.bay.get_top() + UP * 0.05,
+                self.decode.bay.get_bottom() + DOWN * 0.05,
+            ],
+            self.rails_between_stations[2],  # decode → sampler
+            # in-bay sampler: in from above, out to the right
+            [
+                self.sampler.bay.get_top() + UP * 0.05,
+                self.sampler.bay.get_center(),
+                self.sampler.bay.get_right() + RIGHT * 0.05,
+            ],
+            self.rail_sample_to_cache,
         )
 
     @staticmethod
@@ -743,6 +1007,11 @@ class LifecycleSet(VGroup):
             self.after,
             self.rail_stream_home,
             self.return_label,
+            # The loop-back label hangs in the box's right margin, OUTSIDE the
+            # frame that would otherwise bound this side of the world. It has to
+            # be framed or the pull-back crops the one label that names the new
+            # rail — and it is the reason wide_frame_width moved.
+            self.loopback_label,
         )
 
     def reveal_labels(self, opacity: float = 1.0) -> list:

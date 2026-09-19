@@ -2,7 +2,12 @@
   "video": "What happens when you hit send",
   "slug": "chatgpt_request_lifecycle",
   "note": "One continuous 45s shot through the whole request lifecycle - the extended cut of chatgpt_message_journey, which it deliberately does not modify. Status is the only field a steady-state session flips. Never reword or delete acceptance criteria to make something pass - that is a correctness bug, not a shortcut.",
-  "statuses": ["planned", "in_progress", "failing", "passing"],
+  "statuses": [
+    "planned",
+    "in_progress",
+    "failing",
+    "passing"
+  ],
   "features": [
     {
       "id": "lifecycle-set",
@@ -13,10 +18,14 @@
       "acceptance": [
         "Chat, bot check, edge, gateway and orchestrator run left to right along the top band; four bays inside one PipelineBox run down the right; stream and the after-response spur run along the bottom; the climb home closes the loop up the left margin",
         "Every anchor the choreography needs (bay centres, slot centres, rail endpoints, glow halos) is addressable without recomputing geometry",
-        "circuit() yields a single path a payload can traverse in one animation, built by joining the DRAWN rails rather than node centres",
-        "validate() asserts the way home and the fan-out spur clear every machine, both as a path and as the chords a comet actually draws at the loop's real frame budget",
+        "circuit() yields a single path a payload can traverse in one animation, built by joining the DRAWN rails rather than node centres - and it is the REQUEST's one journey, never a repeating loop",
+        "A drawn loop-back rail runs sampler -> KV cache up the box's 0.90-wide inner right margin at LOOPBACK_X=23.25, chevrons pointing back up at the cache, with a wide-shot label in the margin outside the frame",
+        "decode_cycle() joins the drawn rails into the autoregressive loop (KV cache -> decode -> sample -> append) and CLOSES: validate() asserts the gap is under 0.05, because a loop that does not close teleports once per token",
+        "nodes is split into request_nodes (crossed once) and loop_nodes (the three bays a decode step touches), so a repeating pass cannot light the gateway",
+        "Rails that run inside the PipelineBox are added AFTER it: the frame is an opaque fill and buries anything drawn before it",
+        "validate() asserts the way home and the fan-out spur clear every machine, both as a path and as the chords a comet actually draws at the real frame budgets (REQUEST_LAP_RUN_TIME and EMIT_RUN_TIME), plus the loop-back rail's clearance of the bays and the frame",
         "validate() asserts band separation, the zoom budget against SHOT_WIDE, and that no wide-shot label falls below typography.MIN_READABLE",
-        "Total extent is about 56 x 29.7 units; wide_frame_width() is 57.9 against a declared SHOT_WIDE of 58.0, a pull-back of 4.07x"
+        "Total extent is about 57.3 x 29.7 units; wide_frame_width() is 59.34 against a declared SHOT_WIDE of 58.0 (2.3% drift, inside the 12% gate), a pull-back of 4.17x"
       ]
     },
     {
@@ -72,7 +81,9 @@
         "The chat template is shown as text before the line shatters into id chips, and the two never share the slot at readable opacity",
         "Prefill shows a cached prefix against a short new tail, with the tail named in a caption because it is too narrow for an inline label",
         "Decode shows an elided 96-layer stack pulsing plus a batch the viewer's request is one row of, with a batch-utilisation meter",
+        "The decode caption names the mechanism the pull-back later shows at plant scale: one token in, one pass out, the rest is cached",
         "Sampling shows a distribution, selects ' A', and the winner matches the first word of the reply",
+        "The sampler beat ends by showing the LOOP: a copy of the winning chip rides the loop-back rail up to the KV bay and joins the cache, captioned 'and round again', while the original stays to become the courier - one token, both destinations",
         "Nothing is clipped: every in-box bay and its caption fit the 13.6 tight shot, and captions sit in the 0.6 gap between bays without touching either"
       ]
     },
@@ -87,7 +98,7 @@
         "Stream ticks detokenise / output safety / tool call before the chunks leave",
         "Four SSE chunks fly the return rail; the camera frames the rail AND the chat, so the window it is flying to is never cut by the frame edge",
         "The reply bubble is sized for the finished sentence up front, placed by the chat window, and shows only its first words on arrival",
-        "The question and the reply are both visible in the window at once - the transcript must not scroll the question away",
+        "The reply bubble is sized for the finished sentence up front, placed by the chat window, and shows exactly ONE word on arrival - one token sampled, one word - seeded into the tokens_emitted counter that drives every later reveal",
         "A grey copy spawns AT THE FORK and drops down the spur to the after bay, which is never on the reply's path"
       ]
     },
@@ -95,15 +106,17 @@
       "id": "shot-pullback",
       "priority": 7,
       "scene_class": "TheLifecycle",
-      "title": "41-46s: the whole plant, running",
+      "title": "41-50s: the plant is asymmetric - crossed once, looped many times",
       "status": "passing",
       "acceptance": [
         "Every part of the lifecycle is in frame at once",
         "Each bay cross-fades its close-up header for a wide label; never both at the same time, and no icon renders as a filled blob",
-        "Wide labels are readable at the pull-back and none overlap",
-        "Two more tokens complete the full circuit, each node lighting as the token reaches it",
-        "The reply finishes filling in as they land",
-        "Runtime is within 45 +/- 1.5s"
+        "Wide labels are readable at the pull-back and none overlap, including the new 'append K,V - next token' in the box's right margin",
+        "ONE lap of the whole plant, lighting request_nodes in sequence, captioned 'the request crosses once' - and then the outside drops to a resting glow and never lights again",
+        "Ten decode cycles then lap decode_cycle() INSIDE the box, lighting loop_nodes only; bot_check, edge, gateway and orchestrator are verified in frames not to re-light",
+        "Each cycle emits exactly one token, which flies the reply rail to the chat and reveals exactly one more word; tokens_emitted is the only driver of answer.reveal and the beat asserts it ends equal to answer.word_count",
+        "The last six cycles accelerate, halving in duration, and read as a machine speeding up rather than as the animation giving up",
+        "Runtime is within 50 +/- 1.5s"
       ]
     },
     {

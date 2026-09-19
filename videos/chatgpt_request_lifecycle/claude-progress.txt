@@ -211,3 +211,113 @@ RUNTIME AND ARTEFACTS
     luminance grid cannot see that; the case was rendered and looked at anyway
     (names now uniform, values right-aligned) rather than approved blind.
     Nothing was approved.
+
+================================================================================
+SESSION (tenth): the film taught autoregressive generation WRONG. Fixed.
+================================================================================
+Not a polish pass. A correctness fix to what the film ASSERTS.
+
+THE DEFECT
+  beat_pull_back ran its end-of-film runner twice around s.circuit() - the
+  ENTIRE plant - and lit all ten of s.nodes on each pass, presenting each lap as
+  producing more of the answer. That says every token you receive is re-scored
+  at the edge, re-authenticated at the gateway and re-assembled by the
+  orchestrator. It is not. Prefill runs ONCE, in a single parallel pass that
+  fills the KV cache; every subsequent token is ONE decode step that takes only
+  the previously generated token, attends to the cached keys and values, and
+  appends its own K/V to the cache. Nothing walks back upstream per token.
+  Separately: the beat revealed 3 words up front and 4 per "token" over two
+  passes - 2 tokens, 8 words, against an 11-word reply. A viewer who counts,
+  which is the only kind of viewer this film has, sees the arithmetic fail.
+
+WHAT THE SET GAINED
+  - rail_sample_to_cache: a DRAWN loop-back rail, sampler -> prefill/KV, up the
+    box's inner right margin at LOOPBACK_X=23.25. The margin is 0.90 wide
+    (frame right 23.70, bays stop at 22.80) and was empty; 23.25 is its midline,
+    0.45 from each. Chevrons point UP at the cache, which the travel order gives
+    for free. Routed through the KV bay rather than straight to decode because
+    the sampled token's K,V are what the next step reads - that makes the cache
+    the hinge of the cycle and reuses the two rails already drawn.
+  - loopback_label "append K,V - next token", rotated, in the margin outside the
+    frame, mirroring the box's own side title. Clamped to 92% of the box height:
+    unclamped it measured 18.2 units end to end against a 12.8-tall box and hung
+    across the bottom band. Centring it on the loop's own 5.4-unit span was
+    tried and is worse - the scale that fits lands at 0.013 of frame height,
+    a third under typography.MIN_READABLE.
+  - decode_cycle(): the loop, joined from the drawn rails, both end bays entered
+    and left on an L so the payload never doubles back. It CLOSES exactly
+    (gap 0.000000) and validate() asserts under 0.05, because a loop that does
+    not close is a teleport the viewer sees once per token.
+  - request_nodes / loop_nodes. `nodes` stays as an inventory with a docstring
+    saying in words that it is not a loop.
+  - LOOP_RUN_TIME -> REQUEST_LAP_RUN_TIME (1.6), new EMIT_RUN_TIME (0.40);
+    validate() budgets chord clearance for the lap and for the token's flight
+    home against the real numbers.
+  - validate() also measures the loop-back rail's gap to the bays and to the
+    frame off the mobjects, and asserts the label clears the frame.
+
+WHAT THE FRAMES CAUGHT, AND NO GATE COULD
+  1. THE NEW RAIL RENDERED AS NOTHING AT ALL, AND THE GATE WAS GREEN.
+     PipelineBox.frame is filled with theme.BG at full opacity. Every rail that
+     runs INSIDE the box was added to the set before self.llm, so the box buried
+     it. The first final render had a runner lapping a path with no track under
+     it, and a pixel probe at the rail's x found background. This had been true
+     since the film shipped - the descent through the column, the rails between
+     the four bays and the way out of the column were all invisible too - and
+     nobody noticed because every OTHER rail is outside the box. The four
+     in-box rails are now added after self.llm; the arrows between the bays are
+     visible in the close-ups for the first time.
+  2. A COMET AT PULL-BACK SPEED IS A LINE, NOT A COMET. The emitted token
+     crosses 74 units in 0.40s. At the draft's 15fps that is ~12 units per
+     sampled chord and the trail drew a straight green diagonal from the box to
+     the stream bay - indistinguishable from the routing bug this repo has fixed
+     twice. Tail cut to 0.05s (three frames) for the four explicit emits; the
+     six accelerated ones carry NO trail at all, because a bare dot is sampled
+     onto the true path every frame and cannot cut a corner.
+
+WHAT THE PULL-BACK IS NOW
+  1.3s out to the plant. 1.6s: ONE runner on the full circuit, lighting
+  request_nodes in sequence, captioned "the request crosses once". Then the
+  outside drops to resting and never lights again. Then ten laps of
+  decode_cycle() inside the box - four at 0.38s+0.40s captioned "one token per
+  pass", then six halving from 0.28 to 0.13 captioned "≈60 tokens a second" -
+  each lap emitting one token that flies the reply rail to the chat and reveals
+  exactly ONE more word. tokens_emitted is seeded at 1 by the stream beat
+  (reveal(3) -> reveal(1); the old "three words, not one" comment is gone) and
+  incremented in exactly one place. The beat ends with an assertion that it
+  equals answer.word_count.
+
+VERIFIED IN FRAMES, NOT BY EXIT CODE
+  - Eleven stills at cycle midpoints: 1,2,3,4,5,6,7,8,9,10,11 words against
+    1..11 completed cycles. Equal at every one.
+  - Halo brightness measured per bay over the beat: edge/gateway/orchestrator/
+    bot check peak during the one lap (56/59/45/57) and sit flat at resting
+    (36/38/30/36) for the whole token loop; prefill/decode/sampler go from 22-24
+    to 93/126/138 and pulse there. The outside does not re-light. That is the
+    entire point of the change and it is now a measurement, not a claim.
+  - The emitted token was tracked frame by frame down the rails:
+    (18,-8.6) (18,-9.7) (15.3,-11.9) (10.5,-11.9) (-4.1,-11.9) (-12.5,-11.9)
+    (-26.6,-12.0). It follows the drawn path, corner by corner.
+
+BUDGET
+  45s -> 50s. Nominal 50.25, measured final 50.115. The after beat gave up 0.55s
+  and the caption swap 0.20s; the loop itself was not compressed, because the
+  loop is what the film is now about.
+
+STILL WEAK
+  - In the accelerated phase the token going home is a 6px dot with no trail and
+    is easy to miss at the pull-back. What carries the acceleration is the three
+    loop bays pulsing faster and the words landing faster, both of which read
+    clearly. A slower flight would read better and does not fit the budget.
+  - The sampler beat sends a COPY of the winning chip up the loop-back rail and
+    keeps the original as the courier, rather than dropping a second token out
+    of the loop as planned. A second token there would be a token the viewer can
+    count and a word they cannot - the bubble does not exist yet at that point -
+    which is the arithmetic failure this session exists to remove.
+  - lib/components/chat_ui.StreamingBubble maps words to glyph slices with
+    len(word), and Pango renders 48 glyphs for 49 characters here, so the LAST
+    word's slice is clipped by one. Nothing visible in this cut (the final
+    reveal shows the whole sentence) but it is a real off-by-one in /lib and
+    belongs in a session of its own.
+  - probability-typography is still open and the decode beat's meter still
+    prints its value over the bar's right edge at this shot width.

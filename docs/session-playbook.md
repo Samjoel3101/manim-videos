@@ -29,6 +29,118 @@ Before writing any code:
 Step 5 costs a couple of minutes and regularly saves an hour of building on a
 broken assumption.
 
+## Plan, delegate, review
+
+`AGENTS.md` states the rule; this is the protocol. It is mandatory for every
+change to this repo — scenes, components, tests, docs, manifests, config.
+Answering a question, or read-only investigation that changes nothing, is not a
+change and does not need the loop.
+
+The reason is the one already written into the Generator/Evaluator split, one
+step further out: an agent that decides what to build, builds it, and then
+judges its own build has no independent check at any of the three points. Every
+defect this repo has shipped was invisible to the five gates and caught by a
+fresh pair of eyes — rails that had never been drawn, a bar chart with no
+number on it, a label three times under the readability floor.
+
+### 1. Plan
+
+Before any file is written, read the code and work out the whole change. A plan
+that is worth handing over states:
+
+- what is wrong or missing, precisely, with `file:line` where it applies;
+- the exact files, symbols and constants involved;
+- the measured numbers it depends on — geometry, extents, timings — **measured,
+  not assumed.** Plans written from memory produce implementations that fail on
+  first render;
+- the step-by-step or beat-by-beat shape of the result, with timings;
+- the tests and baselines it needs;
+- the verification that would prove it correct, in enough detail to execute;
+- a definition of done, as a checklist;
+- the hard rules that apply (theme, typography, motion, protected paths).
+
+Write it to a file. The implementer and the reviewer then read the same text
+instead of two paraphrases of it.
+
+**Plan every change, including the ones you will build yourself.** The plan is
+what lets you size the work honestly; deciding to do something quickly *before*
+working out what it involves is how a "one-line fix" turns into six files and no
+tests.
+
+### 1b. Size it, and write the call down
+
+The last thing the plan does is decide who builds it. State the verdict and the
+reason in the plan, so the next session can see the judgement rather than guess
+at it.
+
+**Build it yourself** when *all* of these hold:
+
+- one or two files;
+- no new module, component or public API;
+- no new test and no baseline to approve;
+- the Evaluator is sufficient proof — you do not need to render and read frames;
+- you can state the entire change in a few sentences without losing a part.
+
+Typical: a status flag in `feature_list.json`, a docstring, a caption's wording,
+a constant retuned within an existing beat, a progress-log entry.
+
+**Delegate** when *any* of these hold:
+
+- it spans several files or modules;
+- it adds a feature, a scene, a beat, or a `/lib` component;
+- it needs a new test, or a baseline approved;
+- proving it correct needs a render and a frame review;
+- it has parts that must land in a particular order, or that interact;
+- the plan is long enough that you would not hold it all in your head while
+  writing the code.
+
+Typical: a new video, a new component with its tests, a re-timed beat sequence,
+anything that changes what the film *asserts*.
+
+**On the boundary, delegate.** The two failure modes are not symmetric.
+Delegating something small costs some minutes. Building something large yourself
+removes the independent check at every one of the three points — decide, build,
+judge — which is the entire reason this section exists.
+
+Sizing is a judgement about the *change*, not about how confident you feel. "I
+know exactly what to do here" is not evidence that the work is small; it is
+usually evidence that you have not yet found what you are wrong about.
+
+### 2. Delegate
+
+Hand the plan's path to a subagent. Give it the repo rules, the exact commands,
+the branch to commit and push to, and an explicit instruction to report what it
+could not do. Ask for evidence rather than assurances: for anything visual, what
+it *saw in a frame*, not what the code now says.
+
+Expect it to depart from the plan. A plan written without rendering anything is
+frequently wrong about sizes and timings; a good implementer measures, finds the
+plan's error, and says so. Ask for those departures with reasons.
+
+### 3. Review
+
+Always, for delegated work. For work you built yourself, when it touches `/lib`
+or anything already shipped in `assets/` — those are the changes whose blast
+radius reaches past the thing in front of you.
+
+A second subagent, which did not write the code. Give it the implementer's
+specific claims and ask it to check them — "verify this list" produces a sharper
+review than "look this over". Tell it to rank findings by severity, to separate
+real defects from weaknesses, to name what is genuinely good, and to say plainly
+if it finds nothing serious rather than manufacturing findings. Tell it not to
+modify, commit or push anything.
+
+### 4. Verify yourself
+
+Before reporting to the user, check the headline claims with your own tools. Run
+the Evaluator. Read the frames. A subagent's report is a claim, not a fact, and
+the claims that matter most are the ones easiest to assert without checking.
+
+### Fixing what the review finds
+
+Small, precise fixes can go straight to an implementer with the findings
+attached. Anything larger goes back through the loop from step 1.
+
 ## One unit of work per session
 
 A unit is one scene, or one component plus its tests — not "as much as fits".
