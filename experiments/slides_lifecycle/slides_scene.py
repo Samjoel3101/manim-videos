@@ -45,6 +45,15 @@ from scene_lifecycle import W_CHAT, TheLifecycle  # noqa: E402
 class SlidesLifecycle(Slide, TheLifecycle):
     """The top band of the film, cut into four click-advanced slides."""
 
+    #: A beat's last frame is never its finished composition. Each shipped beat
+    #: ends on a FadeOut, and manim renders an animation's final frame at
+    #: t = run_time - 1/fps, so the fading props are still faintly drawn when
+    #: the chunk is cut. In the continuous take the next beat covers that frame
+    #: 1/60 s later; a click stop promotes it into the held still. FadeOut has
+    #: already REMOVED the mobjects by then, so a few still frames after the
+    #: beat — and before the stop — rest on the clean composition instead.
+    SETTLE = 0.2
+
     def construct(self) -> None:
         # Mirrors `TheLifecycle.construct`'s prelude exactly: the beats depend
         # on `self.set` and `self.parcel` existing, and on the camera starting
@@ -58,12 +67,15 @@ class SlidesLifecycle(Slide, TheLifecycle):
         self.parcel: list = []
 
         self.beat_client()
+        self.wait(self.SETTLE)
         self.next_slide()
 
         self.beat_edge()
+        self.wait(self.SETTLE)
         self.next_slide()
 
         self.beat_gateway()
+        self.wait(self.SETTLE)
         # The one animated hold in the deck. Every other stop freezes on its
         # last frame while it waits for a click; this one replays instead, so
         # the contrast between a frozen pause and a live idle is visible in a
