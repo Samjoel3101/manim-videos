@@ -63,6 +63,9 @@ INLINE_MIN_FRACTION = 0.12
 
 LABEL_MODES = ("legend", "inline", "none")
 
+#: Where a ``labels="legend"`` table is placed relative to the bar.
+LEGEND_SIDES = ("right", "below")
+
 
 class SegmentedBar(VGroup):
     """A proportional bar cut into named, coloured segments.
@@ -94,6 +97,19 @@ class SegmentedBar(VGroup):
         mode, for the case where something else on screen names the sliver.
     gap:
         Space between segments. Zero — one solid bar — by default.
+    legend_side:
+        ``"right"`` (the default: a table beside the bar) or ``"below"`` (a
+        table under the bar, sharing its left edge and its full width). Beside
+        a short bar in a station bay there is room for the numbers but not for
+        the words; below it there is room for both at the same size.
+    legend_width:
+        Width of the legend table. Defaults to ``length * 0.85`` beside the bar
+        and to ``length`` below it.
+    strict_legend:
+        Refuse to draw a legend whose one type size would fall below
+        :data:`lib.typography.MIN_READABLE` at ``frame_width``, rather than
+        drawing words nobody can read. Off by default so existing callers keep
+        working; on for anything whose legibility matters.
     """
 
     def __init__(
@@ -109,6 +125,8 @@ class SegmentedBar(VGroup):
         min_segment: float = 0.02,
         gap: float = 0.0,
         legend_width: float | None = None,
+        legend_side: str = "right",
+        strict_legend: bool = False,
         frame_width: float = DEFAULT_FRAME_WIDTH,
         allow_unlabelled_segments: bool = False,
         **kwargs,
@@ -116,6 +134,8 @@ class SegmentedBar(VGroup):
         super().__init__(**kwargs)
         if labels not in LABEL_MODES:
             raise ValueError(f"labels must be one of {LABEL_MODES}")
+        if legend_side not in LEGEND_SIDES:
+            raise ValueError(f"legend_side must be one of {LEGEND_SIDES}")
 
         items = list(segments.items()) if hasattr(segments, "items") else list(segments)
         if not items:
@@ -196,13 +216,23 @@ class SegmentedBar(VGroup):
         #: them and the submobject list stays constant under ``.animate``.
         self.label_groups: list[VGroup] = []
         self.legend = None
+        self.legend_side = legend_side
         if labels == "legend":
+            if legend_width is not None:
+                width = legend_width
+            elif legend_side == "below":
+                # Below the bar the legend has the bar's own width to spend —
+                # that is the entire point of the placement.
+                width = length
+            else:
+                width = length * 0.85
             self._build_legend(
                 length=length,
-                legend_width=legend_width if legend_width is not None
-                else length * 0.85,
+                legend_width=width,
                 show_values=show_values,
                 frame_width=frame_width,
+                legend_side=legend_side,
+                strict_legend=strict_legend,
             )
         elif labels == "inline":
             self._build_inline(widths, show_values, frame_width)
@@ -261,7 +291,7 @@ class SegmentedBar(VGroup):
 
     def _build_legend(
         self, *, length: float, legend_width: float, show_values: bool,
-        frame_width: float,
+        frame_width: float, legend_side: str, strict_legend: bool,
     ) -> None:
         swatch = self.thickness * 0.5
 
@@ -277,7 +307,6 @@ class SegmentedBar(VGroup):
         # is why the structural test that checks edges never saw it, and why the
         # 16x16 luminance snapshot did not either.
         value_mobs: list = []
-        value_width = 0.0
         if show_values:
             value_mobs = [
                 typography.text(
@@ -286,10 +315,63 @@ class SegmentedBar(VGroup):
                 )
                 for i in range(len(self.names))
             ]
-            value_width = max(mob.width for mob in value_mobs)
+
+        name_mobs = [
+            typography.text("micro", name, frame_width=frame_width, color=theme.FG)
+            for name in self.names
+        ]
+
+        # ONE type size for the whole legend. The previous version ran only the
+        # NAME through `fit_text` and never the value, so on this film's own
+        # data every name came out 0.26-0.35x the height of its own number:
+        # measured shares 0.0066-0.0077 of frame height against a
+        # typography.MIN_READABLE of 0.020, while every value cleared the floor.
+        # That is the same "drawn and unreadable" failure `_build_inline` guards
+        # against, one column over, and it reads as a chart whose words have
+        # been squashed rather than as a legend.
+        #
+        # So the columns are sized TOGETHER: work out the one factor that makes
+        # the widest row fit, and apply it to names and values alike. The row is
+        # swatch + PAD_SM + name + PAD_SM + value, of which only the two text
+        # columns can scale, so the factor is exact rather than iterated.
+        name_width = max(mob.width for mob in name_mobs)
+        value_width = max((mob.width for mob in value_mobs), default=0.0)
+        name_left = swatch + theme.PAD_SM
+        text_room = legend_width - name_left - (theme.PAD_SM if show_values else 0.0)
+        text_needed = name_width + value_width
+        scale = 1.0
+        if text_needed > 0 and text_room < text_needed:
+            scale = max(text_room, 0.2) / text_needed
+        if scale < 1.0:
+            for mob in (*name_mobs, *value_mobs):
+                mob.scale(scale)
+            name_width *= scale
+            value_width *= scale
+
+        # Guard it, following the precedent of the constructor's inline check:
+        # a legend too narrow for its own names is refused rather than drawn
+        # illegibly, and the message names both constants and both ways out.
+        if strict_legend:
+            worst = min(
+                typography.measure(mob, frame_width)
+                for mob in (*name_mobs, *value_mobs)
+            )
+            if worst < typography.MIN_READABLE:
+                raise typography.UnreadableTextError(
+                    f"legend_width={legend_width:.3g} is too narrow for these "
+                    f"names at frame_width={frame_width:.3g}: the legend would "
+                    f"be typed at {worst:.4f} of frame height, below "
+                    f"typography.MIN_READABLE={typography.MIN_READABLE}. The "
+                    f"row needs {name_left + text_needed + theme.PAD_SM:.3g} "
+                    "units. Either widen legend_width (legend_side='below' "
+                    "gives the legend the bar's full width), shorten the "
+                    "segment names, or type the bar for a tighter shot with a "
+                    "smaller frame_width. Pass strict_legend=False to draw it "
+                    "anyway."
+                )
 
         rows = VGroup()
-        for i, name in enumerate(self.names):
+        for i, name_mob in enumerate(name_mobs):
             chip = Rectangle(
                 width=swatch,
                 height=swatch,
@@ -301,13 +383,6 @@ class SegmentedBar(VGroup):
 
             value_mob = value_mobs[i] if show_values else None
 
-            name_mob = typography.text(
-                "micro", name, frame_width=frame_width, color=theme.FG
-            )
-            name_left = swatch + theme.PAD_SM
-            room = legend_width - name_left - value_width - theme.PAD_SM
-            utils.fit_text(name_mob, max(room, 0.2))
-
             # Fixed origin, exactly as in checks.py: the swatch starts the row,
             # the name sits at a constant offset, the value is right-aligned in
             # the reserved column. Names of different lengths therefore cannot
@@ -317,14 +392,27 @@ class SegmentedBar(VGroup):
             parts = [chip, name_mob]
             if value_mob is not None:
                 value_mob.set_y(0.0)
-                value_mob.shift(RIGHT * (legend_width - value_mob.get_right()[0]))
+                right_edge = max(
+                    legend_width, name_left + name_width + theme.PAD_SM + value_width
+                )
+                value_mob.shift(RIGHT * (right_edge - value_mob.get_right()[0]))
                 parts.append(value_mob)
             rows.add(VGroup(*parts))
 
         rows.arrange(DOWN, buff=theme.PAD_XS, aligned_edge=LEFT)
-        rows.next_to(
-            np.array([length, 0.0, 0.0]), RIGHT, buff=theme.PAD_MD
-        )
+        if legend_side == "below":
+            # The legend sits under the bar and shares its left edge, so a
+            # legend as wide as the bar costs nothing horizontally. That is the
+            # only way these names stay at full size in a half-frame station
+            # bay: beside the bar they have ~0.6 units and need ~2.1.
+            rows.next_to(
+                np.array([0.0, -self.thickness / 2.0, 0.0]), DOWN, buff=theme.PAD_SM
+            )
+            rows.shift(RIGHT * (0.0 - rows.get_left()[0]))
+        else:
+            rows.next_to(
+                np.array([length, 0.0, 0.0]), RIGHT, buff=theme.PAD_MD
+            )
         self.legend = rows
         self.label_groups = list(rows)
         self.add(rows)
@@ -436,5 +524,5 @@ class SegmentedBar(VGroup):
         return self.segments[index]
 
 
-__all__ = ["SegmentedBar", "INLINE_MIN_FRACTION", "LABEL_MODES",
+__all__ = ["SegmentedBar", "INLINE_MIN_FRACTION", "LABEL_MODES", "LEGEND_SIDES",
            "DEFAULT_FRAME_WIDTH"]

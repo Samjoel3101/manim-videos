@@ -446,7 +446,13 @@ class TheLifecycle(MovingCameraScene):
                     ("file-text", "files"),
                 )
             ]
-        ).arrange(RIGHT, buff=theme.PAD_MD)
+            # PAD_SM, not PAD_MD: the chips row was the widest thing in the
+            # group and at PAD_MD it measured 5.21 against a 4.90 slot, so
+            # `fit` was width-bound on the CHIPS and shrank the bar and its
+            # legend to suit. A tighter gutter takes the row to 4.71 and hands
+            # the binding constraint back to the height, which is what the
+            # layout below is actually budgeting.
+        ).arrange(RIGHT, buff=theme.PAD_SM)
 
         bar = SegmentedBar(
             {
@@ -455,14 +461,25 @@ class TheLifecycle(MovingCameraScene):
                 "memory + prefs": 380,
                 "your message": 7,
             },
-            # Sized to fill the bay's slot exactly (4.9 wide, of which the bar
-            # takes 2.3, a PAD_MD gutter 0.5 and the legend 2.0). This is the
-            # film's key beat and the first version, at length=2.0, left the bar
-            # looking incidental beside its own legend.
-            length=2.3,
+            # The legend sits BELOW the bar and both span the slot's full 4.9.
+            # Beside the bar (the previous layout: bar 2.3, gutter 0.5, legend
+            # 2.0) a name had ~0.6 units of room and "tool definitions" needs
+            # 2.10, so every name was crushed to a third of the size of its own
+            # number — measured at 0.0066-0.0077 of frame height against
+            # typography.MIN_READABLE of 0.020, while every number cleared it.
+            # Widening the legend in place was not available: a readable row
+            # needs 3.53 of the 4.9, which would leave the bar 0.87 and destroy
+            # the beat. Below the bar the legend costs height instead of width,
+            # and the height was there. The bar gets LONGER out of the deal
+            # (4.56 drawn after `fit`, against 2.17 before), so the 7-token
+            # sliver is twice the width it used to be.
+            length=4.9,
             thickness=0.4,
             labels="legend",
-            legend_width=2.0,
+            legend_side="below",
+            # Refuse to draw rather than draw words nobody can read: this beat
+            # is the reason the guard exists.
+            strict_legend=True,
             # 7 of 3,937 is 0.18% of the bar: sub-pixel, i.e. invisible, i.e.
             # the beat fails. The drawn slice is floored; the legend still
             # prints 7. See lib/components/stacked.py.
@@ -478,7 +495,10 @@ class TheLifecycle(MovingCameraScene):
             colors=[theme.NETWORK, theme.ATTENTION, theme.EMBED, theme.TOKEN],
             frame_width=W_SERVICE,
         )
-        content = VGroup(sources, bar).arrange(DOWN, buff=theme.PAD_SM)
+        # PAD_XS, not PAD_SM: with the legend under the bar the group is now
+        # height-bound, and every 0.125 spent here comes straight off the type
+        # size of the four names this beat exists to make readable.
+        content = VGroup(sources, bar).arrange(DOWN, buff=theme.PAD_XS)
         # margin=1.0, not the 0.92 default: the content is already built to the
         # slot's exact width, and the default margin would shrink it by 8% for
         # no reason and take the legend under the readability floor with it.

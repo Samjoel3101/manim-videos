@@ -67,6 +67,7 @@
         "Conversation, memory and files arrive as icon chips before the prompt is built",
         "The prompt assembles as a SegmentedBar, one segment at a time, with the true token counts in the legend",
         "The 7-token 'your message' segment is VISIBLE despite being 0.18% of the bar - the drawn slice is floored, the printed value is not",
+        "The legend sits BELOW the bar at the slot's full width, so each category NAME is typed at the same size as its number and both clear typography.MIN_READABLE measured after station.fit",
         "A caption states both the ratio and why there is no history segment",
         "Routing and input-classifier badges land before the camera descends"
       ]

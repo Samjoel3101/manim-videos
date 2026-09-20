@@ -625,3 +625,68 @@ STILL BLOCKED ON A HUMAN (tenth session)
    was routed around.
 2. harness-ci.
 3. default branch.
+
+----------------------------------------------------------------------
+SESSION 11 — /lib: the legend is one type size, and it can sit under the bar.
+
+THE DEFECT
+  In lib/components/stacked.py::_build_legend the NAME column went through
+  utils.fit_text and the VALUE column never did. A legend too narrow for its
+  names therefore came out with the numbers at full size and the words at a
+  third of it. Measured in scene context on the orchestrator beat of
+  chatgpt_request_lifecycle, after station.fit at W_SERVICE=16.0:
+
+    row                name/frame-h   value/frame-h
+    system prompt         0.0077         0.0251
+    tool definitions      0.0066         0.0251
+    memory + prefs        0.0075         0.0215
+    your message          0.0070         0.0208
+
+  typography.MIN_READABLE is 0.020. Every number cleared it; not one word did.
+  This is the same "drawn and unreadable" failure _build_inline already guards
+  against, one column over. Neither gate could see it: the row edges stayed
+  perfectly aligned (the structural alignment test passed) and a 16x16
+  luminance signature cannot tell small type from large (the snapshot passed).
+  It is also NOT the bug the previous fix in this function addressed — that one
+  made the names equal to EACH OTHER by reserving the value column once, and it
+  is preserved. This one is names against VALUES.
+
+BUILT
+- stacked.py: the legend is sized as one block. The row is
+  swatch + PAD_SM + name + PAD_SM + value, of which only the two text columns
+  can scale, so the shared factor is solved once and applied to names and
+  values alike rather than iterated. Nothing is ever scaled up.
+- stacked.py: legend_side="below" (LEGEND_SIDES). The table sits under the bar
+  sharing its left edge, and legend_width defaults to the bar's length, so the
+  numbers right-align with the bar's end and read as a key to it.
+- stacked.py: strict_legend=True refuses a legend that would be typed below
+  MIN_READABLE, in the tone of the constructor's existing inline refusal —
+  it names the constant, the width the row actually needs, and three ways out.
+  Off by default, so no existing caller changed behaviour.
+- tests/test_stacked_legend.py: 7 tests. Six fail against the pre-fix
+  component; the headline one fails for the right reason (name scales
+  0.273-0.320 against value scales of 1.0).
+- tests/snapshot_cases.py: segmented_bar_legend_below, a new approved baseline,
+  looked at before approving.
+
+WHAT DID NOT NEED DOING
+- The plan expected segmented_bar_legend to move. It did not, and neither did
+  segmented_bar_inline. That case builds a 5.0-long bar at frame_width 13.6,
+  where the legend has 4.25 units against the 3.21 the row needs, so neither
+  the old fit_text nor the new shared factor shrinks anything. Byte-identical
+  output. Worth knowing: the existing baseline never covered the cramped case
+  that was broken, which is why the new case was added.
+- The plan recommended fading the `sources` icon chips to buy vertical room.
+  Measurement said it was not needed: with the legend below the bar the content
+  is 4.90 x 2.35 against a 4.90 x 2.30 slot, a fit factor of 0.980, and every
+  row lands at 0.0216-0.0286. Two cheaper adjustments bought the room instead
+  (chips gutter PAD_MD -> PAD_SM, which was what made `fit` width-bound; group
+  buff PAD_SM -> PAD_XS). No choreography change, no re-timing, no runtime cost.
+
+STILL BLOCKED ON A HUMAN (eleventh session)
+1. harness-hook-bash-false-positive. Hit twice more; both times the command
+   merely piped the Evaluator's output to `tail`. Split each time. Nothing was
+   routed around.
+2. harness-ci.
+3. default branch.
+4. The StreamingBubble off-by-one from session 10 is still open.

@@ -483,3 +483,53 @@ VERIFIED INDEPENDENTLY (reviewer, at its own timecodes - not the implementer's)
     longer, because the preceding ease-out tail falls under any motion
     threshold before it formally ends. The substantive claim (no hold opens
     mid-entrance) does hold.
+
+----------------------------------------------------------------------
+SESSION 11 — beat_orchestrator: the legend moves below the bar.
+
+WHY
+  The four category NAMES were 2.6-3.0x below typography.MIN_READABLE while
+  every number cleared it — a /lib defect in stacked.py::_build_legend, fixed
+  there and written up in the repo-level log. The layout change here is what
+  makes the fix land in this bay.
+
+  Widening the legend in place was not available. A readable row needs
+  0.45 (swatch+PAD_SM) + 2.10 (longest name) + 0.25 + 0.73 (value column)
+  = 3.53 of the slot's 4.9, which leaves the bar 0.87 — and this is the shot
+  whose whole point is that "your message" is a 0.18% sliver of a bar long
+  enough to see it in.
+
+CHANGED
+  - length 2.3 -> 4.9, legend_side="below", legend_width dropped (it defaults to
+    the bar's length), strict_legend=True.
+  - sources chips gutter PAD_MD -> PAD_SM. That row measured 5.21 against a 4.90
+    slot and was what made station.fit WIDTH-bound, so it was shrinking the bar
+    and its legend to suit itself. At PAD_SM it is 4.71 and the binding
+    constraint is the height, which is what the layout is budgeting.
+  - VGroup(sources, bar) buff PAD_SM -> PAD_XS.
+
+MEASURED, after station.fit(margin=1.0) at W_SERVICE=16.0
+
+    row                name/frame-h          value/frame-h
+    system prompt      0.0077 -> 0.0269      0.0251 -> 0.0261
+    tool definitions   0.0066 -> 0.0229      0.0251 -> 0.0261
+    memory + prefs     0.0075 -> 0.0286      0.0215 -> 0.0224
+    your message       0.0070 -> 0.0227      0.0208 -> 0.0216
+
+  Floor is 0.020. Name and value are now the same type size in every row; the
+  remaining difference between the two columns is bounding-box only (descenders
+  and the mono face), not size.
+
+  The bar got LONGER out of it: drawn length 2.17 -> 4.80 after fit, and the
+  7-token sliver 0.076 -> 0.168 units. The beat is stronger, not just legible.
+
+  Runtime unchanged: ffprobe on the final cut reads 59.399s against the 60.0s
+  cap (59.398698s before and after — this change plays no new animations).
+
+WHAT IT COSTS
+  The bar and its legend now occupy the slot top to bottom, so this bay has no
+  spare vertical room left. A future beat that wants a fifth segment, a second
+  caption line inside the bay, or the `sources` chips kept larger will have to
+  take it from somewhere — most likely by fading the chips as the bar
+  assembles, which the plan proposed and the measurement made unnecessary this
+  time. The chips also sit a little tighter than before.

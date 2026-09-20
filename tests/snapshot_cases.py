@@ -188,6 +188,34 @@ def _segmented_bar_legend():
     ).scale(1.15)
 
 
+def _segmented_bar_legend_below():
+    """The orchestrator's bar as the film now draws it: legend UNDER the bar.
+
+    Guards the layout that makes the four names readable. Beside a bar short
+    enough to leave room for it, a legend gives "tool definitions" ~0.6 units
+    against the 2.10 it needs, and the old component shrank the NAME column
+    alone — names at ~0.3x the height of their own numbers. Under the bar the
+    legend has the bar's full width, so both columns stay at one size and the
+    numbers right-align with the bar's end.
+    """
+    return SegmentedBar(
+        {
+            "system prompt": 2400,
+            "tool definitions": 1150,
+            "memory + prefs": 380,
+            "your message": 7,
+        },
+        length=6.0,
+        thickness=0.5,
+        labels="legend",
+        legend_side="below",
+        strict_legend=True,
+        min_segment=0.035,
+        colors=[theme.NETWORK, theme.ATTENTION, theme.EMBED, theme.TOKEN],
+        frame_width=13.6,
+    ).scale(1.15)
+
+
 def _segmented_bar_inline():
     """The KV-cache bar, emphasised. Guards the inline-label width rule: the
     narrow "new tail" segment gets no label of its own, by design."""
@@ -232,5 +260,6 @@ CASES: dict[str, Callable[[], Mobject]] = {
     "station_wide_bar": _station_wide_bar,
     "check_list": _check_list,
     "segmented_bar_legend": _segmented_bar_legend,
+    "segmented_bar_legend_below": _segmented_bar_legend_below,
     "segmented_bar_inline": _segmented_bar_inline,
 }

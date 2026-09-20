@@ -180,9 +180,12 @@
         "Drawn segment widths sum to the bar length; a segment's drawn fraction is floored at min_segment so a 0.18% slice is still visible",
         "fractions reports the UNCLAMPED truth and the legend prints the real value - legibility changes the drawing, never the data",
         "Legend rows are built against a fixed origin, so swatches, names and values each share one edge",
+        "A legend is ONE type size: when the table is too narrow, the name and value columns are scaled by the SAME factor, never the names alone",
+        "legend_side='below' puts the table under the bar at the bar's own width, for a bay with room for the numbers but not the words",
+        "strict_legend refuses a legend that would be typed below typography.MIN_READABLE, naming both ways out",
         "Inline labels are omitted below INLINE_MIN_FRACTION rather than squeezed into a smear",
         "set_shown and emphasise change opacity only, so a bar can be grown and highlighted under .animate",
-        "Structural tests plus approved segmented_bar_legend and segmented_bar_inline snapshot baselines"
+        "Structural tests plus approved segmented_bar_legend, segmented_bar_legend_below and segmented_bar_inline snapshot baselines"
       ],
       "priority": 14
     },
