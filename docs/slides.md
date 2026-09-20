@@ -25,7 +25,7 @@ converts seamlessly**. The second is the one to read before writing a beat.
 
 | Path | What it is |
 |---|---|
-| `lib/slides.py` | `ClickDeck`, the generic split machinery. ~200 lines, shared. |
+| `lib/slides.py` | `ClickDeck`, the generic split machinery. 531 lines, shared by every video. |
 | `videos/<slug>/slides.py` | The per-video deck. What is specific to this film. |
 | `scripts/build_slides.py` | Render + convert, and `--probe` for the inner loop. |
 | `tests/test_slides_convention.py` | The enforcement, via the existing `unit` gate. |
