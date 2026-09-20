@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 media/
 out/
+slides/
 .pytest_cache/
 tests/_artifacts/
 .DS_Store
