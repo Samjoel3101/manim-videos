@@ -404,3 +404,82 @@ STILL WEAK
   - shot-pullback's title still says 41-50s in feature_list.json's TEXT of older
     criteria; the runtime criterion itself was updated to the 60.0s cap and the
     title to 41-60s. Nothing was deleted - two criteria were added.
+
+REVIEW FOLLOW-UP (same session, after the independent pacing review)
+  Two documentation overstatements corrected, both found by the reviewer, both
+  comments/prose only - no geometry, no run_time, no re-render. Runtime still
+  59.398698s.
+
+  1. The frame-rounding note was BACKWARDS, in the one paragraph a re-timer
+     reads to judge headroom against a hard cap. Both the scene docstring and
+     script.md said the shipped cut runs "a little longer" than the arithmetic
+     sum of its run_times; script.md put ~0.8s on it, which applied to this
+     film's 59.52s nominal predicts 60.32s - over the cap. Measured: 59.3987s
+     against 59.5159s nominal, i.e. -0.117s, SHORTER. Mechanism, measured:
+     ChatWindow.type_animation issues 29 wait(1/17) calls and at 60fps each is
+     TRUNCATED to 3 frames (0.050s) rather than rounded up to 0.0588s, losing
+     0.256s across the opening; rounding on the other ~110 plays returns ~0.14s.
+     The real timeline therefore runs ~0.24s ahead of the timecode comments
+     mid-film and ~0.12s ahead by the end. Fixed in 81db978.
+  2. "The time was added as stillness rather than slower motion" was true of
+     7.95s of the 9.27s, not all of it. 1.32s IS slower motion
+     (REQUEST_LAP_RUN_TIME 1.6->2.2, CYCLES_EXPLICIT's lap 0.38->0.56), both
+     authorised by the plan and both inside the pull-back, which has no still
+     frame to hold on. feature_list.json and script.md's hold table already
+     disclosed this accurately; only the two summary sentences overstated, and
+     those are the ones people skim. Now stated with the split.
+
+OPEN, NOT BLOCKING - the reviewer's findings this session did NOT act on
+  a. FOUR BEATS DO NOT FIT THEIR NARRATION at 150-155 wpm: gateway (-0.11s),
+     sampling (-0.03s), after (-0.07s), orchestrator (+0.17s, marginal). They
+     fit only at the top of the range with no intra-sentence pauses. The
+     gateway->orchestrator chain is the one that actually breaks, because both
+     links are tight and neither has anywhere to spill. Whole-film there is
+     ~0.2s of slack across the first 48 seconds; the tokenizer beat (+2.65s) and
+     the pull-back (+3.18s) hold nearly all the breathing room.
+     Two fixes, either works: trim 3-4 words from those beats' lines (free, no
+     re-render), or the reviewer's redistribution below (costs a render).
+  b. REVIEWER'S RECOMMENDED REDISTRIBUTION, not applied: CYCLES_EXPLICIT
+     0.56 -> 0.44 frees 0.48s, and the measured -0.117s rounding direction means
+     ~0.4s of the safety margin is reclaimable. Spend on +0.4 gateway, +0.3
+     sampling, +0.2 after, +0.2 orchestrator. Turns four negative margins
+     positive. Not done because it changes pacing the user has not yet judged,
+     and because 0.78s was already countable so 0.56 was never needed.
+  c. THREE caption/chevron collisions, not the one previously logged. Every
+     centred caption under an in-box bay crosses the column rail:
+       - "only the new tail is computed" - the solid grey chevron is drawn
+         THROUGH the word "tail", the load-bearing word, splitting t from a.
+         Now on screen ~2.65s (was ~1.9s), so the eye has time to land on it.
+         Worst of the three; fix is a horizontal nudge, NOT a shorter hold.
+       - "the prefix is identical for everyone -" crosses at the em-dash,
+         making it read doubled.
+       - "its keys and values join the cache -" crosses the column midline,
+         milder (thin line, not a triangle).
+     Pre-existing, not caused by the narration pass, but it made the worst one
+     dwell longer. Belongs to in-box caption placement.
+  d. The step INTO the acceleration ramp is now 1.7x steeper (first step ratio
+     0.58 vs 0.86 for every other step) because the four explicit cycles slowed
+     to 0.96s while CYCLES_FAST was correctly left alone. The reviewer judged it
+     reads as a gear change rather than a glitch - it lands exactly on the
+     caption swap - and it disappears if (b) is applied. Recorded so the next
+     person knows it is deliberate and measured, not drift.
+
+VERIFIED INDEPENDENTLY (reviewer, at its own timecodes - not the implementer's)
+  - Token/word invariant holds: 20 crops across the pull-back, strictly
+    monotone 1->11, exactly one word per emit, landing on 11 words for
+    1 sampler + 4 explicit + 6 fast = 11 cycles.
+  - CYCLES_FAST provably untouched: reveal timestamps match main's exactly,
+    offset by a constant 8.88s.
+  - REQUEST_LAP_RUN_TIME's pairing with validate() is correct: raising it
+    raises `steps`, so the sampled chords are SHORTER and the clearance check
+    strictly finer. A slower lap cannot weaken that assertion.
+  - All eleven timecode comments match the real run_time sum to within 0.005s.
+  - Hold placement: maximum dwell before any hold opens is 0.32s, so not one
+    of the fifteen sits on content the viewer has already finished reading.
+  - Stillness: main has 6 still runs totalling 1.73s (3.5% of the film); this
+    cut has 18 totalling 10.22s (17.2%). That gap is the whole point of the pass.
+  - The implementer's claim that the holds are static runs "of exactly their
+    own length" is stronger than the measurement supports - runs are 0.1-0.3s
+    longer, because the preceding ease-out tail falls under any motion
+    threshold before it formally ends. The substantive claim (no hold opens
+    mid-entrance) does hold.

@@ -24,10 +24,18 @@ is in `scenes.json`.
 
 **The bare `self.wait(...)` calls are narration holds, and they are load-bearing
 timing, not padding.** The cut went from 50.25s to 59.52s nominal so that the
-script in `../script.md` has somewhere to land, and the time was added as
-*stillness after the content lands* rather than as slower motion: a camera move
-or an entrance stretched by a third reads as sluggish, whereas the same move
-followed by a beat of stillness reads as deliberate. Each hold is placed after
+script in `../script.md` has somewhere to land, and **7.95s of that 9.27s is
+stillness after the content lands** rather than slower motion: a camera move or
+an entrance stretched by a third reads as sluggish, whereas the same move
+followed by a beat of stillness reads as deliberate.
+
+The remaining **1.32s is honestly slower motion**, in the two places the plan
+authorised it and only there: `REQUEST_LAP_RUN_TIME` 1.6 → 2.2 (+0.60) and
+`CYCLES_EXPLICIT`'s lap 0.38 → 0.56 (+0.72). Both are inside the pull-back,
+which is the one stretch of the film with no still frame in it, so there was
+nothing there to hold *on*. Do not let this grow: it is 14% of the added time
+and it is the part that would read as the animation slowing down rather than as
+the film breathing. Each hold is placed after
 the thing its sentence describes has settled — a hold that starts while
 something is still moving reads as a stall. 60.0s is a hard cap; if a hold has
 to give, take it from the client and after beats, which are the two whose
