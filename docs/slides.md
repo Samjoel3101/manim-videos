@@ -70,7 +70,7 @@ a rendered frame.
 ### 2.1 Pure-`Wait` plays are filtered out
 
 `Scene.wait()` is `self.play(Wait(...))` in manim 0.21
-(`manim/scene/scene.py:1252`). A naive split on every `play` therefore turns
+(`manim/scene/scene.py:1250`). A naive split on every `play` therefore turns
 each per-character hold of `ChatInput.type_animation` into its own one-frame
 slide — the first probe of this produced 57 stops, **29 of them a single frame**.
 
