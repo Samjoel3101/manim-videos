@@ -11,6 +11,10 @@ promotion rule. This file covers only what is specific to this video.
 - `scenes.json` — the render manifest: scene order, module, duration budget.
 - `scenes/` — one module per scene. Import from `/lib`; keep one-offs local.
 - `render.py` — renders every scene in manifest order and concatenates.
+- `slides.py` — the click deck of this film: 43 animations → 33 stops.
+  Subclasses `TheFactory`; copies no timings. It also records one conversion
+  defect this film has and the deck does not work around — see its docstring
+  and `docs/slides.md` → "`.animate` is never an arrival".
 
 ## Working on this video
 

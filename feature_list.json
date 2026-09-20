@@ -262,6 +262,21 @@
         "The workflow file is owned by CODEOWNERS, not editable by an agent session",
         "A failing gate blocks the merge"
       ]
+    },
+    {
+      "id": "lib-slides",
+      "priority": 21,
+      "status": "passing",
+      "title": "lib/slides.py ClickDeck: every video ships a click-advanced deck",
+      "acceptance": [
+        "lib/slides.py holds the generic split: arrival/clear-down classification, pure-Wait filtering, no_stops/sticky regions, the play state machine",
+        "videos/<slug>/slides.py is a per-video deck that subclasses the shipped scene and copies no timings",
+        "scripts/build_slides.py <slug> renders and converts a deck; --probe reports the split with no render",
+        "scripts/new_video.py scaffolds a slides.py so a video is born with both outputs",
+        "tests/test_slides_convention.py enforces it inside the existing unit gate, with no change to the Evaluator or to harness.json",
+        "docs/slides.md covers how the split works and how to author a scene that converts",
+        "The lifecycle deck still produces 97 animations and 70 stops"
+      ]
     }
   ]
 }

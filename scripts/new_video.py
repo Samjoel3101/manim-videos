@@ -2,8 +2,13 @@
 """Scaffold a new video project with the per-project harness files in place.
 
 Setup phase, run once per video. Creates the folder, the per-video AGENTS.md,
-an empty feature list, a progress log, a scene manifest and a render driver, so
-a steady-state session never has to re-derive the structure.
+an empty feature list, a progress log, a scene manifest, a render driver and a
+click-deck stub, so a steady-state session never has to re-derive the structure.
+
+A video is born with BOTH outputs: the continuous film and the deck
+(`docs/slides.md`). The `slides.py` written here needs its scene class filled
+in and nothing else — the deck subclasses the film, so it inherits every timing
+rather than repeating one.
 
 Usage:
     .venv/bin/python scripts/new_video.py chatgpt_message_journey \\
@@ -36,6 +41,19 @@ promotion rule. This file covers only what is specific to this video.
 - `scenes.json` — the render manifest: scene order, module, duration budget.
 - `scenes/` — one module per scene. Import from `/lib`; keep one-offs local.
 - `render.py` — renders every scene in manifest order and concatenates.
+- `slides.py` — the click-advanced deck of this film. Subclasses the scene;
+  copies no timings. Built with `scripts/build_slides.py {slug}`.
+
+## Both outputs
+
+Every scene here is authored for the continuous film **and** for the deck. The
+deck is not a second edit — it inherits the choreography and only decides where
+the clicks go. Read `docs/slides.md` → "Authoring rules" before writing a beat;
+the short version is that a bare `self.wait()` extends a slide rather than
+costing a click, each beat clears its own props, content arrives via `FadeIn`
+and friends rather than `.animate.set_opacity`, and a ramp goes in `no_stops()`.
+`tests/test_slides_convention.py` fails the `unit` gate if this file's deck is
+missing or has drifted from the film.
 
 ## Working on this video
 
@@ -190,6 +208,55 @@ if __name__ == "__main__":
 '''
 
 
+SLIDES_TEMPLATE = '''"""The click-advanced deck of "{title}".
+
+The generic machinery is in `lib/slides.py`; the rules for authoring a scene
+that converts cleanly are in `docs/slides.md`. This file holds only what is
+specific to THIS film — which animation loops, and which repeats must not
+become clicks. It copies no choreography: `ClickDeck.construct` runs the
+shipped `construct` unchanged, so `script.md` stays the single source of truth
+for pacing in both outputs.
+
+    .venv/bin/python scripts/build_slides.py {slug} --probe   # seconds
+    .venv/bin/python scripts/build_slides.py {slug}           # render + HTML
+
+TODO when the first scene exists:
+  * import it below and put it last in the base list;
+  * run `--probe` and paste the counts into EXPECTED_ANIMATIONS/EXPECTED_STOPS;
+  * look at the deck, and wrap any ramp or texture in `no_stops()`.
+"""
+
+from __future__ import annotations
+
+import pathlib
+import sys
+
+from manim_slides import Slide
+
+# The shipped scene imports its set as a sibling top-level module, so that
+# directory goes on the path rather than being imported as a package.
+_ROOT = pathlib.Path(__file__).resolve().parents[2]
+_SCENES = pathlib.Path(__file__).resolve().parent / "scenes"
+for _p in (str(_ROOT), str(_SCENES)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+from lib.slides import ClickDeck  # noqa: E402
+# from scene_{slug} import TheScene  # noqa: E402
+
+
+# class Slides{camel}(ClickDeck, Slide, TheScene):
+#     """The whole film, cut into one click-advanced slide per animation."""
+#
+#     EXPECTED_ANIMATIONS = 0
+#     EXPECTED_STOPS = 0
+'''
+
+
+def _camel(slug: str) -> str:
+    return "".join(part.title() for part in slug.split("_"))
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("slug", help="python-identifier-shaped folder name")
@@ -216,6 +283,11 @@ def main(argv: list[str]) -> int:
     (video_dir / "render.py").write_text(
         RENDER_TEMPLATE.format(title=args.title, slug=args.slug)
     )
+    (video_dir / "slides.py").write_text(
+        SLIDES_TEMPLATE.format(
+            title=args.title, slug=args.slug, camel=_camel(args.slug)
+        )
+    )
     (video_dir / "scenes.json").write_text(
         json.dumps({"title": args.title, "slug": args.slug, "scenes": []}, indent=2) + "\n"
     )
@@ -239,6 +311,8 @@ def main(argv: list[str]) -> int:
 
     print(f"created videos/{args.slug}/")
     print("next: fill script.md, then add scenes to feature_list.json and scenes.json")
+    print("      then finish slides.py — a video ships a film AND a deck "
+          "(docs/slides.md)")
     return 0
 
 

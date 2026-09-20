@@ -13,6 +13,9 @@ promotion rule. This file covers only what is specific to this video.
 - `scenes/scene_lifecycle.py` — **the choreography**: when the camera goes there.
 - `scenes/props.py` — one-off visuals only this video needs.
 - `render.py` — renders the scene and writes the cut.
+- `slides.py` — the click deck of this film: 97 animations → 70 stops.
+  Subclasses `TheLifecycle`; copies no timings. `docs/slides.md` has the rules.
+  Build: `.venv/bin/python scripts/build_slides.py chatgpt_request_lifecycle`.
 
 ## Working on this video
 

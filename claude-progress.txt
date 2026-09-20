@@ -799,3 +799,93 @@ SLIDES SPIKE BROUGHT UP TO THE CURRENT FILM (experiments/ only)
   help or hurt a click deck is a judgement for a viewer: a hold is dead time in
   a medium where the presenter already controls the pace. Nothing was changed
   either way - the film's timings stay the single source of truth.
+
+--------------------------------------------------------------------
+SESSION — graduated the click deck from spike to enforced convention.
+
+  WHY. The user asked for docs about the slides work AND for the harness to
+  require it: "all videos created should be having this slides conversion as
+  well or they should be created with both the slides and video in mind so
+  that the conversion is seamless."
+
+  THE SPLIT. experiments/slides_lifecycle/slides_scene.py was 474 lines welded
+  to one film. Generic half -> lib/slides.py (ClickDeck): INTRODUCING /
+  NOT_INTRODUCING, _is_clear_down, _is_pure_wait, no_stops(), sticky_stops(),
+  _sticky_play(), the play split state machine, and construct() which calls the
+  film's own construct so a deck never restates the beat order. Specific half
+  stays with the video: videos/chatgpt_request_lifecycle/slides.py is 102 lines
+  (LOOP_ON_ANIMATION + _is_loop_target + _token_cycle + the counts).
+  videos/chatgpt_message_journey/slides.py is 66 lines, ~25 of code.
+  experiments/slides_lifecycle/ is deleted; experiments/README.md records the
+  graduation.
+
+  REGRESSION BAR HELD EXACTLY. 97 animations -> 70 stops, 5 suppressed regions,
+  loop on animation 3 (slide 4 in the config). Rendered chunks at 480p15:
+  0.200-2.667s, median 0.833s, 61.597s of chunk video, no single-frame stop.
+  Those are the spike's numbers to the frame. assets/chatgpt_request_lifecycle
+  .mp4 is untouched at 59.398698s; neither film's scenes/ was edited.
+
+  ENFORCEMENT WITHOUT TOUCHING THE PROTECTED GATE. tests/test_slides_convention
+  .py is picked up by the existing unit gate (it runs pytest over tests/), so
+  no gate name and no harness.json change. It asserts, per video with a scene
+  in its manifest: a slides.py exists with exactly one ClickDeck subclass; the
+  deck subclasses a scene from scenes.json with ClickDeck ahead of it in the
+  MRO; the deck defines no construct of its own; no stop is zero-length or a
+  single frame at the render profile's fps; the deck's total time equals the
+  film's; the declared counts still hold. Verified it fails by moving a
+  slides.py aside - three failures, all naming the missing deck.
+
+  NOTHING IS RENDERED BY THE TEST. lib.slides.probe runs a deck's construct
+  with the frame loop replaced by begin/finish/clean_up per animation, so the
+  whole split state machine executes with no rasterisation. That is also
+  scripts/build_slides.py --probe, the inner loop. Cost: the unit gate went
+  6.5s -> 51s, because the probe still builds two whole films' mobjects. That
+  is the price of checking the split at all without a render, and it is two
+  orders of magnitude cheaper than one.
+
+  THE SECOND FILM IS THE REAL TEST, AND IT FOUND SOMETHING. chatgpt_message
+  _journey converts: 43 animations -> 33 stops, chunks 0.200-1.933s, median
+  0.600s, no single-frame stop, final stop on the whole plant with the complete
+  reply. It needed ONE new generic mechanism, not a special case: _sticky_play,
+  a predicate form of sticky_stops for a ramp written inline in a beat the deck
+  may not edit. The lifecycle deck's ramp is six calls to a helper it can wrap;
+  the journey's is eight plays inline in beat_transform with nothing to wrap, so
+  the plays are recognised by what they animate (a single .animate on a
+  LayerBlock) instead. Both now sit in lib/ and both films use only lib/.
+
+  ONE CONVERSION DEFECT, REPORTED NOT WORKED AROUND. scene_factory.py:348-354
+  plays camera.focus + FadeOut(courier) + answer.body.animate.set_opacity(1.0).
+  A .animate opacity raise is not a recognised arrival (a _MethodAnimation does
+  not advertise its direction), so the play is classified as a clear-down and
+  merges forward into the three-word reveal after it. The deck loses one click.
+  The resting frame was extracted and is fine - the chat window with "It turns
+  your" in the bubble - so this costs a click, not a blank slide. The film was
+  NOT edited; the rule it breaks is written up in docs/slides.md 3.4 and in the
+  deck's own docstring. The fix, if a human wants it, is FadeIn(answer.body) in
+  the film.
+
+  DOCS. docs/slides.md: how the splitting works (the four load-bearing
+  behaviours, with the frame each was found by), the per-repeat call table for
+  both films, eight authoring rules, the build commands, and the Reveal.js
+  offline-cache note (six files for Reveal 6.0.1 under
+  ~/.cache/manim-slides/). Wired in: AGENTS.md Map rows for lib/slides.py,
+  videos/<slug>/slides.py and scripts/build_slides.py; Generator rule 7; a
+  bullet under "Continuous shots"; the factory-video skill gained a "Two
+  outputs, one choreography" section and a deck step in its build loop; both
+  per-video AGENTS.md; scripts/new_video.py scaffolds a slides.py stub and says
+  so on stdout.
+
+  GATES. Five green on both videos (lint, import, unit, snapshot, render).
+
+  OPEN / WEAK.
+  * The unit gate is now 51s, nearly all of it the two probes. If that becomes
+    a problem the honest fix is to drop the "deck total == film total" check,
+    which is what costs the second pair of probes.
+  * The .animate-arrival blind spot is still a blind spot. It is now
+    documented, and one real instance of it exists in a shipped film. A
+    predicate that could see it would need to compare a _MethodAnimation's
+    target state, which nothing in manim exposes cheaply.
+  * EXPECTED_ANIMATIONS/EXPECTED_STOPS are enforced now rather than warned
+    about. A legitimate choreography change therefore fails the unit gate until
+    the deck's constants are updated - deliberate, but it is a step a future
+    session must not paper over without looking at the deck.

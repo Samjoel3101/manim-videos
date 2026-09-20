@@ -20,6 +20,7 @@ videos/<slug>/
   script.md          beat sheet with timecodes — write this FIRST
   scenes/<name>_set.py    where everything is
   scenes/scene_<name>.py  when the camera goes there
+  slides.py               where the clicks go — the deck, ~40 lines
 ```
 
 **Splitting the set from the choreography is not optional.** A 30-second uncut
@@ -30,6 +31,36 @@ does that twice.
 The set module builds every mobject, positions it, and exposes stable anchors
 (`entry`, `exit`, `slot_center`, rail endpoints) plus pre-built glow halos. The
 scene module only plays animations against those anchors.
+
+## Two outputs, one choreography
+
+Every video here ships **both** the continuous film and a click-advanced deck
+(`videos/<slug>/slides.py`, built with `scripts/build_slides.py <slug>`). The
+deck subclasses the scene and decides only where the clicks go; it copies no
+timings, so `script.md` stays the single source of truth for both.
+
+That costs nothing **if the beats are written for it**, and the rules are ones
+good continuous choreography follows anyway:
+
+- **A bare `self.wait()` never becomes a click** — it extends the open slide. So
+  narration holds are free. But a wait placed *after* a clear-down parks the
+  stop on the emptied bay; put holds after content.
+- **Each beat clears its own props before the camera leaves.** Already the house
+  rule. It is what lets the deck merge a clear-down forward into the next beat's
+  arrival, so one click reads "old props go, camera travels, new content lands".
+- **Content arrives via `FadeIn`, `Flash`, `Create`, `DrawBorderThenFill` or
+  `MoveAlongPath`.** `.animate` is for glows, meters and the camera, and is
+  never read as an arrival — a bare `.animate.set_opacity(1.0)` paired with a
+  `FadeOut` is misclassified as a clear-down. Use `FadeIn` for the content.
+- **A ramp or a texture goes in `no_stops()`.** Keep the stops when the repeat
+  is a sequence of distinct states (a bar filling a segment per pass, lanes
+  advancing); collapse it when the repeat's *shape* is the content (an
+  accelerating loop, a pulse that returns to where it started).
+- **End the film with a trailing wait** after the last fade.
+
+`tests/test_slides_convention.py` fails the `unit` gate if a video has no deck
+or the split drifts. Depth, and the frame-by-frame reasons behind each rule:
+`docs/slides.md`.
 
 ## Building the set
 
@@ -270,7 +301,10 @@ self.play(camera.frame_all(self, [set.everything], pad=1.0), run_time=1.4)
    Then open `/tmp/grid.png`. Every framing bug found in this repo so far — bays
    cropped, titles hanging into close-ups, a vector escaping its bay, a comet
    drawing a hard line — was invisible to the test suite and obvious in the grid.
-5. Only when the Evaluator is green and the frames are right, flip status in
+5. Check the deck: `scripts/build_slides.py <slug> --probe` reports the split in
+   seconds. Build it and look at a few resting frames before calling it done —
+   a stop that rests on a cleared bay is invisible in the counts.
+6. Only when the Evaluator is green and the frames are right, flip status in
    `feature_list.json` and append to `claude-progress.txt`.
 
 ## Adding a component

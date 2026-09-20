@@ -15,11 +15,14 @@ vocabulary already exists in `/lib`.
 | `lib/typography.py` | **The type system.** Sizes as a share of frame height. |
 | `lib/routing.py` | Orthogonal rails, path joining, clearance assertions. |
 | `lib/effects.py` | Glow, comet trails, pulses. |
+| `lib/slides.py` | **`ClickDeck`.** Splits a film into a click-advanced deck. |
 | `lib/assets/icons/` | Vendored Lucide icons (ISC). |
 | `lib/transitions.py`, `lib/utils.py` | Scene transitions; text/layout helpers. |
 | `videos/<slug>/` | One self-contained video. Has its own AGENTS.md. |
+| `videos/<slug>/slides.py` | That video's deck. Subclasses the scene; copies no timings. |
 | `tests/` | Structural + visual-regression tests for `/lib`. |
 | `assets/` | The accepted cut of each video, committed. `out/` is scratch. |
+| `scripts/build_slides.py` | Render a video's deck; `--probe` reports the split. |
 | `scripts/evaluate.py` | **The Evaluator.** Nothing is done until it exits 0. |
 | `harness.json` | Run config: render profiles, gates, protected paths. |
 | `init.sh` | Idempotent environment bootstrap. Run it every session. |
@@ -29,7 +32,8 @@ vocabulary already exists in `/lib`.
 
 Deeper reading, only when you need it: `docs/session-playbook.md` (how a session
 runs), `docs/component-guide.md` (how to write a `/lib` component),
-`docs/architecture.md` (why the layering is what it is).
+`docs/architecture.md` (why the layering is what it is), `docs/slides.md` (how a
+film becomes a click deck, and how to author a beat so it converts).
 
 ## Roles
 
@@ -94,7 +98,17 @@ approving a baseline without looking at the render.
    node centres, and a set asserts its own geometry in `validate()`.
 6. **Nodes get icons, not labelled rectangles**, and "this is running" is a glow
    (`lib/effects.py`), not a thicker border.
-7. Leave the repo merge-ready at the end of a session: green Evaluator, updated
+7. **Every video ships two outputs from one choreography: the continuous film
+   and a click-advanced deck** (`videos/<slug>/slides.py`). The deck subclasses
+   the scene and decides only where the clicks go — it never copies a timing.
+   Author beats for both: a bare `self.wait()` extends a slide rather than
+   costing a click, each beat clears its own props, content arrives via `FadeIn`
+   / `Flash` / `Create` / `MoveAlongPath` and **never** a bare
+   `.animate.set_opacity(1.0)` paired with a `FadeOut`, and a ramp or texture
+   goes in `no_stops()`. Full rules and the reason behind each:
+   `docs/slides.md`. `tests/test_slides_convention.py` enforces this inside the
+   existing `unit` gate.
+8. Leave the repo merge-ready at the end of a session: green Evaluator, updated
    `feature_list.json` status, an appended `claude-progress.txt` entry.
 
 ## Session start
@@ -148,6 +162,8 @@ a human. Do not route around it.
 ```bash
 .venv/bin/python videos/<slug>/render.py --profile draft    # 480p15, fast
 .venv/bin/python videos/<slug>/render.py --profile final    # 1080p60
+.venv/bin/python scripts/build_slides.py <slug> --probe     # deck split, no render
+.venv/bin/python scripts/build_slides.py <slug>             # deck: chunks + one HTML
 .venv/bin/python scripts/new_video.py <slug> --title "..."  # scaffold a video
 ```
 
@@ -175,6 +191,11 @@ or changing one — it carries the full recipe. The essentials:
 - Motion blur is **off on every profile** by design — a frame-blend pass smears
   the whole frame and reads as judder on a camera move. The machinery stays for
   a shot that specifically wants it.
+- The same choreography is also the deck (`docs/slides.md`). Nothing about the
+  continuous shot changes for it — but a beat that clears its own props, brings
+  content in with `FadeIn` rather than `.animate.set_opacity`, and keeps its
+  narration holds after content rather than after a clear-down, converts for
+  free. One that does not costs a click or a blank slide.
 - Watch the zoom budget: the pull-back factor is `wide_frame_width / 14.22`. A
   wide layout reaches ~2x, a vertical column ~3x. Type is shot-relative so both
   stay readable, but a set should assert its own figure.
