@@ -25,7 +25,7 @@ added.
 The first cut stopped once per *beat*: four stops, i.e. a slideshow of four long
 movies. This one overrides `Scene.play` instead, so **every animation the
 shipped choreography runs gets its own stop** — 97 animations, 70 stops,
-0.20s–2.67s each (median 0.67s), none of them a single frame and none under
+0.20s–2.67s each (median 0.83s), none of them a single frame and none under
 0.2s. Four things make that work:
 
 - **`Scene.wait()` is `self.play(Wait(...))`** in manim 0.21. Splitting on every
@@ -69,9 +69,9 @@ parts of that took a render and a frame to get right:
   carries on" is a transition rather than a clear-down. The frames do not
   support the distinction: such a play ends on the same half-faded prop, because
   Manim renders an animation's last frame at `t = run_time - 1/fps` and
-  `FadeOut` only removes the mobject after that. `scene_lifecycle.py:849` proved
+  `FadeOut` only removes the mobject after that. `scene_lifecycle.py:957` proved
   it — the sampler's loop caption was clearly legible, mid-fade, on a resting
-  frame. Two plays change as a result (`:849`, and `:984` where the spinner goes
+  frame. Two plays change as a result (`:957`, and `:1071` where the spinner goes
   as the camera returns to the chat, which used to rest on an *empty* bubble
   frame); no play in the top band combines a `FadeOut` with a camera move, so
   the 27 stops already signed off on are unchanged, which was checked by diffing
@@ -96,7 +96,7 @@ region is its own click rather than an extension of the one before it.
 first of the two rests on a dot back where it started with no new word — a click
 that shows nothing. So every cycle is one click. On top of that, the six
 `CYCLES_FAST` cycles are **one click for the whole ramp**: that list halves
-across six passes and the film's own comment (`scene_lifecycle.py:139-147`) says
+across six passes and the film's own comment (`scene_lifecycle.py:174-186`) says
 its shape IS the acceleration. Six clicks flatten it as surely as re-timing it
 would, twelve worse. The four `CYCLES_EXPLICIT` cycles keep a click each,
 because they are the ones the film says the viewer is meant to *count*: one
@@ -110,10 +110,17 @@ the ramp's region is opened by the first fast cycle and closed by `play` at the
 first animation that does not come from inside a cycle. That is the only sticky
 region in the file.
 
-**Not suppressed, deliberately:** the orchestrator's context bar (`:449`), which
-fills one segment per click — five stops, each a distinct state, and the ones
-the user singled out as good; the decode bay's three activate/deactivate pulses
-(`:682`), because the batch lanes advance a step on each one, so every stop
+**Not suppressed, deliberately:** the orchestrator's context bar (`:519`), which
+fills one segment per click — **four** fill stops (deck stops 21–24), one per
+segment of a four-segment bar, plus the `emphasise` stop after them, i.e. the
+five distinct bar states the user singled out as good. An earlier draft of this
+file called the fill loop itself "five stops"; the loop is `range(1, len(bar)+1)`
+over four segments and always produced four. The frames were re-checked after
+the bar was rebuilt (`length` 2.3 → 4.9, legend moved below it): each stop still
+rests on a filled state, and the legend's four names are now legible at 480p15,
+which they were not in the beside-the-bar layout. The decode bay's three
+activate/deactivate pulses
+(`:777`), because the batch lanes advance a step on each one, so every stop
 differs from the one before it and all six rest on a full bay; and
 `beat_stream`'s four packets, which are a single `LaggedStart`, i.e. already one
 play. The rule applied throughout: keep the stops unless the repetition is a
@@ -144,11 +151,74 @@ Merging clear-downs forward removes the need for it.
 that cut stopped after `beat_orchestrator`, whose last play is a clear-down with
 no successor to merge into and no next slide to carry the frame. The full film
 does not need it: `beat_pull_back` ends with `self.play(FadeOut(caption))`
-followed by the shipped `self.wait(0.5)`, and a trailing wait is a pure-`Wait`
+followed by the shipped `self.wait(0.9)`, and a trailing wait is a pure-`Wait`
 play, so it already extends the final slide past the fade. The deck's last chunk
-is 0.733s for a 0.25s fade, and its final frame is the whole plant at rest with
+is 1.133s for a 0.25s fade, and its final frame is the whole plant at rest with
 the finished reply in the bubble — checked by extracting it, not assumed. The
 constant was removed rather than kept with a comment that is no longer true.
+
+### The narration holds, and why they cost no stops
+
+The film gained fifteen bare `self.wait(t)` narration holds (commit `c5405eb`),
+plus `REQUEST_LAP_RUN_TIME` 1.6 → 2.2 and `CYCLES_EXPLICIT`'s lap 0.38 → 0.56.
+The deck picked all of that up by inheriting, without a line of choreography
+being copied — which is the property this spike is built on, and the reason the
+merge was a merge rather than a rewrite.
+
+**The stop count did not move: still 97 animations and 70 stops.** A hold is a
+pure-`Wait` play, and those are filtered out of splitting, so a hold never makes
+a click — it **extends the slide that is already open**. The distribution is
+what changed: 0.20s–2.67s, median 0.83s (was 0.67s), 61.6s of chunk video for a
+59.4s film. Histogram, in half-second bins: 22 stops under 0.5s, 19 in
+0.5–1.0s, 20 in 1.0–1.5s, 6 in 1.5–2.0s, 2 in 2.0–2.5s, 1 at 2.67s. No stop is
+a single frame; the shortest is 0.20s, i.e. three frames at 15fps.
+
+The only way a hold can hurt is the `SETTLE` failure above: a hold placed
+*after* a clear-down parks the stop on the emptied bay. All fifteen were
+mapped to their slide and their preceding play, and **fourteen follow a content
+play** — the frame the hold rests on is the frame the narration line is about,
+which is exactly what a deck wants:
+
+| hold | extends | rests on |
+|---|---|---|
+| `beat_client` 0.25 | stop 5 | the assembled `POST /v1/chat` card |
+| `beat_edge` 0.35 | stop 12 | all three edge ticks struck |
+| `beat_gateway` 0.35 | stop 17 | the quota meter settled at 62% |
+| `beat_orchestrator` 1.0 | stop 25 | the built bar, sliver emphasised, caption up |
+| `beat_orchestrator` 0.55 | stop 26 | both routing badges landed |
+| `beat_tokenize` 0.4 | stop 29 | the token strip (slide opened by a clear-down that merged forward into it) |
+| `beat_prefill` 0.75 | stop 33 | the cache bar with the tail emphasised |
+| `beat_prefill` 0.5 | stop 34 | the second caption (merged-forward slide) |
+| `beat_decode` 0.65 | stop 43 | the batch meter at 83% |
+| `beat_sample` 0.45 | stop 48 | the winning `A` chip, after the `Flash` |
+| `beat_sample` 1.0 | stop 51 | the `A` chip and the two-line loop caption |
+| `beat_stream` 0.5 | stop 57 | the first word in the bubble (merged-forward slide) |
+| `beat_after` 0.3 | stop 60 | all three after-the-response checks |
+| `beat_pull_back` 0.5 | stop 61 | the whole plant, labelled and still |
+| `beat_pull_back` 0.9 | stop 70 | the plant at rest with the finished reply |
+
+Two of them were checked by hand because the mechanism makes them easy to
+misread:
+
+- **`beat_sample`'s 1.0s loop hold** sits after `Flash(kv) + FadeOut(kv)` — the
+  copy being absorbed into the cache. That play contains a `FadeOut`, but
+  `Flash` is an arrival, so it is not a clear-down, and the frame under the hold
+  still carries the winning chip and both lines of the loop caption. Under a
+  FadeIn-only arrival test it *would* have been a clear-down, and this hold
+  would then have rested on a bay with nothing in it.
+- **`beat_pull_back`'s final 0.9s hold** is the one hold that does follow a
+  clear-down, and it is the case `END_HOLD` was deleted for: it is the last play
+  of the film, so there is no successor to merge into, and the trailing wait is
+  what carries the stop past the caption's fade. 0.5 → 0.9 makes that margin
+  larger, not smaller. The extracted frame is the whole plant at rest with
+  "A dozen machines touch it before the first word comes back." in the bubble
+  and no ghost of the caption.
+
+`REQUEST_LAP_RUN_TIME` and `CYCLES_EXPLICIT` only lengthen chunks the deck
+already had: the lap is stop 62 at 2.2s, and the four explicit cycles are stops
+64–67 at 1.0s each — still one click per countable token. `CYCLES_FAST` is
+untouched, so the sticky region still takes the whole ramp under **one** click
+(stop 69, 2.67s), and stop 70 is the final frame.
 
 Build it:
 

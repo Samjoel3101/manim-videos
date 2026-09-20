@@ -761,3 +761,41 @@ REVIEW FOLLOW-UP: a false positive in the new strict_legend guard
     - Pre-existing, unrelated to this change: the "input classifier" badge's
       opaque fill buries the bay's bottom rail for the badge's height. Same
       occlusion class as the buried-rail bug logged in the tenth session.
+
+
+SLIDES SPIKE BROUGHT UP TO THE CURRENT FILM (experiments/ only)
+  Merged claude/experiment-manim-slides into this branch so the click deck sits
+  on the film as it ships now - the fifteen narration holds, the rebuilt
+  orchestrator bar and its legend. Only .gitignore was touched on both sides
+  (both added "slides/"); resolved to one line. No shipped code changed:
+  assets/chatgpt_request_lifecycle.mp4 is still 59.398698s and all five
+  Evaluator gates are green.
+
+  THE PROPERTY THAT MADE IT A MERGE AND NOT A REWRITE. SlidesLifecycle
+  subclasses TheLifecycle and runs its beat methods unchanged, so it picked up
+  both commits by inheriting. No choreography was forked into the deck, and the
+  film was not re-timed to suit it.
+
+  THE HOLDS COST NO STOPS. A bare self.wait() is a pure-Wait play and those are
+  filtered out of splitting, so a hold extends the slide that is already open
+  rather than making a click. Still 97 animations -> 70 stops. Durations moved:
+  final profile 0.183-2.399s, median 0.80s, 59.399s total, which is the film's
+  runtime exactly. Fourteen of the fifteen holds follow a content play;
+  the fifteenth is beat_pull_back's closing 0.5 -> 0.9, which is the one the
+  deck WANTS after a clear-down because it is the last play of the film and
+  carries the final stop past the caption's fade. Each hold's slide and resting
+  frame is tabulated in experiments/README.md.
+
+  THE ORCHESTRATOR BAR. Four fill stops (one per segment) plus the emphasise
+  stop, each resting on a filled state; the legend's four names are readable at
+  both profiles now that it sits below the bar. The README previously called
+  the fill loop itself "five stops" - the loop is range(1, len(bar)+1) over
+  four segments and always produced four. Corrected there.
+
+  ALSO CORRECTED. Every scene_lifecycle.py line reference in the spike's README
+  and docstrings pointed at pre-holds line numbers; all of them were remapped.
+
+  OPEN. The deck is longer to click through than it was, and whether the holds
+  help or hurt a click deck is a judgement for a viewer: a hold is dead time in
+  a medium where the presenter already controls the pace. Nothing was changed
+  either way - the film's timings stay the single source of truth.

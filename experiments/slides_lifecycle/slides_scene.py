@@ -2,7 +2,7 @@
 
 This is a SPIKE. It exists to answer one question: is a click-driven deck
 (manim-slides) good enough to present this material, versus the continuous
-45-second take the repo actually ships?
+60-second take the repo actually ships?
 
 The design rule here is *subclass, never copy*. `TheLifecycle` already owns the
 choreography; duplicating any of it would create a second copy of timings that
@@ -66,10 +66,11 @@ on the cleared state — the disappearing-text complaint, reintroduced. The
 top-band cut then kept one `END_HOLD` at the very end, because that cut's last
 play was a clear-down with no successor to merge into and no next slide to carry
 the frame. The full film does not need it: `beat_pull_back` ends with
-`self.play(FadeOut(caption))` followed by the shipped `self.wait(0.5)`, and that
+`self.play(FadeOut(caption))` followed by the shipped `self.wait(0.9)`, and that
 wait is a pure-`Wait` play, so it already extends the final slide past the fade
-and rests it on the emptied plant. `END_HOLD` is gone rather than kept with a
-stale comment; the film supplies its own hold.
+and rests it on the plant at rest with the finished reply. `END_HOLD` is gone
+rather than kept with a stale comment; the film supplies its own hold — and the
+narration pass lengthened that hold from 0.5 to 0.9, so the margin grew.
 """
 
 from __future__ import annotations
@@ -110,10 +111,10 @@ from scene_lifecycle import W_CHAT, TheLifecycle  # noqa: E402
 #: Animation classes that put something ON the screen. A clear-down is defined
 #: as "props leaving, nothing arriving", and the first cut of that predicate
 #: tested only `FadeIn` — which is not the same claim. `beat_sample` plays
-#: `Flash(kv) + FadeOut(kv)` (`scene_lifecycle.py:843-848`): the chip's keys and
+#: `Flash(kv) + FadeOut(kv)` (`scene_lifecycle.py:945-950`): the chip's keys and
 #: values being absorbed into the cache, with the flash carrying the arrival.
 #: Under a FadeIn-only test that play reads as a clear-down and merges forward
-#: into `:849`, which is a real clear-down — so the merged stop would rest on a
+#: into `:957`, which is a real clear-down — so the merged stop would rest on a
 #: cleared bay, the exact failure this whole design exists to prevent.
 #:
 #: `MoveAlongPath` is here for the same reason: a dot travelling a rail is the
@@ -145,7 +146,7 @@ NOT_INTRODUCING = (FadeOut, Uncreate)
 #: was invisible in the counts: it reinstated the "a camera move disqualifies a
 #: clear-down" rule the docstring below says it removes, and the deck rendered
 #: to the same 72 stops either way. What gave it away was the resting frame of
-#: `scene_lifecycle.py:849` still carrying a half-faded caption.
+#: `scene_lifecycle.py:957` still carrying a half-faded caption.
 #:
 #: The beats also pass `.animate` builders UNBUILT (`_AnimationBuilder` is not
 #: an `Animation` at all), so a class test cannot see those either way. The
@@ -274,7 +275,7 @@ class SlidesLifecycle(Slide, TheLifecycle):
           meant to COUNT) are a sequence of distinct states — one more word in
           the bubble each time — so they keep one click each. They are the
           `comet=True` calls.
-        * `CYCLES_FAST` is a halving ramp, and `scene_lifecycle.py:139-147` says
+        * `CYCLES_FAST` is a halving ramp, and `scene_lifecycle.py:174-186` says
           its shape IS the acceleration and that flattening it removes the one
           thing that reads as a machine speeding up. Six clicks would flatten it
           exactly as surely as re-timing it would; twenty (per play) worse. The
@@ -338,7 +339,7 @@ class SlidesLifecycle(Slide, TheLifecycle):
         travelling clear-down ends on the same half-faded prop as a stationary
         one, because Manim renders an animation's last frame at
         `t = run_time - 1/fps` and `FadeOut` only removes the mobject after
-        that. `scene_lifecycle.py:849-856` is the case that proved it — the
+        that. `scene_lifecycle.py:957-964` is the case that proved it — the
         sampler beat fades its loop caption out while the camera swings back to
         the bay, and at 480p15 the resting frame carried a clearly legible ghost
         of both caption lines. Merging it forward gives the same one click the
@@ -347,11 +348,11 @@ class SlidesLifecycle(Slide, TheLifecycle):
 
         No play in the top band combines a `FadeOut` with a camera move, so the
         27 stops the user signed off on are untouched by this; the two plays it
-        changes are `:849` (above) and `:984`, where the spinner fades out as
+        changes are `:957` (above) and `:1071`, where the spinner fades out as
         the camera returns to the chat — that one now rests on the bubble with
         its first word in it instead of on an empty bubble frame.
 
-        `:940-956` of the stream beat is still not a clear-down, and no longer
+        `:1045-1061` of the stream beat is still not a clear-down, and no longer
         because of the camera: four packets fly home in it, and `MoveAlongPath`
         is an arrival.
         """
