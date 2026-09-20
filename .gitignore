@@ -10,3 +10,4 @@ tests/_artifacts/
 *.egg-info/
 build/
 dist/
+slides/
