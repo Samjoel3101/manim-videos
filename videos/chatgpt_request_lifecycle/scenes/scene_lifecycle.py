@@ -471,7 +471,7 @@ class TheLifecycle(MovingCameraScene):
             # needs 3.53 of the 4.9, which would leave the bar 0.87 and destroy
             # the beat. Below the bar the legend costs height instead of width,
             # and the height was there. The bar gets LONGER out of the deal
-            # (4.56 drawn after `fit`, against 2.17 before), so the 7-token
+            # (4.80 drawn after `fit`, against 2.17 before), so the 7-token
             # sliver is twice the width it used to be.
             length=4.9,
             thickness=0.4,

@@ -153,9 +153,10 @@ def test_the_orchestrator_beats_legend_is_readable_after_the_station_fits_it():
     legend measured on a bare bar proves nothing: this is the measurement that
     decides whether a viewer can read the words.
     """
-    from manim import DOWN, VGroup
+    from manim import DOWN, RIGHT, VGroup
 
     from lib.components.factory import Station
+    from lib.components.glyph import Glyph
 
     station = Station(
         "Orchestrator", subtitle="context · prompt · routing", icon="database",
@@ -165,7 +166,27 @@ def test_the_orchestrator_beats_legend_is_readable_after_the_station_fits_it():
         LONG, length=4.9, thickness=0.4, labels="legend", legend_side="below",
         strict_legend=True, min_segment=0.035, frame_width=FRAME,
     )
-    content = VGroup(bar).arrange(DOWN, buff=theme.PAD_XS)
+    # The chips row belongs in this test, because the chips are what set the
+    # fit factor. Measured while fixing the legend: at PAD_MD between them the
+    # row came out 5.207 against a 4.90 slot, so `fit` was WIDTH-bound on three
+    # badges and was shrinking the bar and the legend to suit them. A version
+    # of this test that fitted `VGroup(bar)` alone therefore proved the one
+    # thing it was written to prove only by accident, and would have stayed
+    # green if a later edit to the chips put the names back under the floor.
+    def chip(icon: str, name: str) -> VGroup:
+        return VGroup(
+            Glyph(icon, color=theme.ASSISTANT, height=0.24, stroke_width=2.0),
+            typography.text(
+                "micro", name, frame_width=FRAME, color=theme.FG_MUTED
+            ),
+        ).arrange(RIGHT, buff=theme.PAD_XS)
+
+    sources = VGroup(
+        chip("database", "conversation"),
+        chip("sparkles", "memory"),
+        chip("file-text", "files"),
+    ).arrange(RIGHT, buff=theme.PAD_SM)
+    content = VGroup(sources, bar).arrange(DOWN, buff=theme.PAD_XS)
     station.fit(content, margin=1.0)
 
     for i, (name, value) in enumerate(_columns(bar)):
@@ -176,3 +197,47 @@ def test_the_orchestrator_beats_legend_is_readable_after_the_station_fits_it():
     assert bar.segments.width >= 2.0, "the bar stays expressive"
     # The 7-token sliver is held up by min_segment and must still be drawn.
     assert bar.segments[-1].width > 0.1, bar.segments[-1].width
+
+
+def test_strict_legend_does_not_refuse_a_legend_with_room_to_spare():
+    """The guard fires on the type SIZE, never on which glyphs are in the name.
+
+    ``typography.measure`` is a bounding box, so a name with no ascender, no
+    descender and no capital measures its x-height — 0.0174 at role ``micro``,
+    under MIN_READABLE at scale 1.0 however wide the legend is. A guard built
+    on it refused this bar: eight units of legend for a row needing under two,
+    nothing scaled, and an error message advising the caller to widen a legend
+    that was already four times wider than it had to be. Two of its three
+    escapes could not help and the third was to turn the guard off.
+
+    Every name here is x-height-only on purpose. If this test ever fails, the
+    guard has gone back to measuring glyphs instead of type size.
+    """
+    bar = SegmentedBar(
+        {"sources": 1, "runs": 2, "errors": 3},
+        length=8.0, labels="legend", legend_side="below",
+        strict_legend=True, frame_width=FRAME,
+    )
+    shares = [typography.measure(name, FRAME) for name, _ in _columns(bar)]
+    assert min(shares) < typography.MIN_READABLE, (
+        "this test is pointless unless these names really do measure below the "
+        f"floor by bounding box: {shares}"
+    )
+
+
+def test_strict_legend_still_refuses_a_legend_that_really_is_crushed():
+    """The other half: the guard must not have been defanged by the fix.
+
+    Long names in a 1.2-unit legend are genuinely scaled far below the floor,
+    and that is the case the guard exists for.
+    """
+    with pytest.raises(typography.UnreadableTextError) as excinfo:
+        SegmentedBar(
+            LONG, length=2.3, labels="legend", legend_width=1.2,
+            strict_legend=True, min_segment=0.035, frame_width=FRAME,
+        )
+    message = str(excinfo.value)
+    # The message has to name the scale it applied and the room it needed,
+    # because "too narrow" without a number is not actionable.
+    assert "scaled to" in message
+    assert "units and has" in message

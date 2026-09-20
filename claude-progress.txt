@@ -672,7 +672,7 @@ BUILT
 WHAT DID NOT NEED DOING
 - The plan expected segmented_bar_legend to move. It did not, and neither did
   segmented_bar_inline. That case builds a 5.0-long bar at frame_width 13.6,
-  where the legend has 4.25 units against the 3.21 the row needs, so neither
+  where the legend has 4.25 units against the 3.34 the row needs, so neither
   the old fit_text nor the new shared factor shrinks anything. Byte-identical
   output. Worth knowing: the existing baseline never covered the cramped case
   that was broken, which is why the new case was added.
@@ -690,3 +690,74 @@ STILL BLOCKED ON A HUMAN (eleventh session)
 2. harness-ci.
 3. default branch.
 4. The StreamingBubble off-by-one from session 10 is still open.
+
+REVIEW FOLLOW-UP: a false positive in the new strict_legend guard
+  Found by the independent reviewer of the legend change, confirmed by
+  reproduction, fixed here. /lib only; no frame changed, runtime untouched.
+
+  THE BUG. `_build_legend`'s strict_legend guard measured each drawn label with
+  typography.measure(), which is a BOUNDING BOX. A bounding box depends on
+  which glyphs are in the string, not on how large the type is. Names with no
+  ascender, no descender and no capital - "sources", "runs", "errors" - measure
+  their x-height, 0.0174 at role micro, which is under MIN_READABLE=0.020 at
+  scale 1.0 NO MATTER HOW WIDE THE LEGEND IS. Reproduced: a bar with 8.0 units
+  of legend for a row needing 1.84 raised UnreadableTextError with nothing
+  scaled at all. Worse, the message then advised widening a legend already four
+  times wider than necessary; of the four escapes it named, three could not
+  help and the fourth was to switch the guard off. The film's own four names
+  pass only because they happen to carry descenders - "memory + prefs" has a
+  'y', "system prompt" a 'p'. A rename to a word like "sources" would have
+  failed the film at construction, and strict_legend=True is live on that bar.
+
+  THE FIX. The guard now tests the TYPE SIZE - typography.fraction(LEGEND_ROLE)
+  times the shared factor actually applied - and not any mobject's box. That is
+  what legibility turns on, so the guard can only fire when something really
+  was shrunk (below scale 0.909 for role micro against a 0.020 floor). The
+  message now prints the scale applied and the room needed against the room
+  available, because "too narrow" without a number is not actionable.
+  LEGEND_ROLE is a new module constant, and both legend columns are now drawn
+  through it: if the drawn role and the checked role ever drift apart the guard
+  silently starts grading the wrong thing.
+
+  NOTE ON typography.measure. Its docstring says the box "errs toward passing
+  borderline text rather than failing readable text". That is true for a string
+  with ascenders or descenders and FALSE for an x-height-only one, which is
+  what this guard walked into. Worth knowing before building another check on
+  it - measure() is right for auditing a rendered shot, and wrong as a
+  construction-time gate on type size.
+
+  TWO TESTS, both failing against the guard as shipped in a975bb8:
+    - ...does_not_refuse_a_legend_with_room_to_spare: every name x-height-only
+      on purpose, and it asserts they DO measure under the floor by box, so the
+      test cannot quietly stop testing anything if the font changes.
+    - ...still_refuses_a_legend_that_really_is_crushed: the other half, so the
+      fix cannot be mistaken for defanging the guard.
+
+  ALSO, from the same review:
+    - test_the_orchestrator_beats_legend_is_readable_after_the_station_fits_it
+      fitted VGroup(bar) alone. The scene fits VGroup(sources, bar), and the
+      chips row is what SETS the fit factor - at PAD_MD it measured 5.207
+      against a 4.90 slot, so fit was width-bound on three badges. The one test
+      guarding the post-fit contract was proving it by accident and would have
+      stayed green if a later edit to the chips put the names back under the
+      floor. It now builds the real chips row.
+    - Two measured figures were wrong in prose and are corrected: the scene
+      comment said the bar draws 4.56 after fit (it is 4.80), and the note
+      below said the segmented_bar_legend row needs 3.21 units (it needs 3.34).
+      Neither changes a conclusion; both are the kind of number someone later
+      takes as measured fact.
+
+  STILL OPEN, from the same review, NOT addressed here
+    - No snapshot baseline exercises the shared-scale path: both legend cases
+      render at scale 1.0, so they guard placement, not the arithmetic. The
+      only coverage of the scaled path is one unit test.
+    - The guard cannot see Station.fit - it runs at construction, and fit
+      happens afterwards on a group the component has no handle on. A post-fit
+      regression is caught only by the one test above.
+    - The orchestrator bay now has zero vertical slack (post-fit content 2.300
+      against a slot cap of 2.300). A fifth segment or a second caption line
+      has nowhere to go and would have to take it from the chips.
+    - The worst row clears the floor by ~8% (0.0216 vs 0.020).
+    - Pre-existing, unrelated to this change: the "input classifier" badge's
+      opaque fill buries the bay's bottom rail for the badge's height. Same
+      occlusion class as the buried-rail bug logged in the tenth session.

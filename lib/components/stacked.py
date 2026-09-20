@@ -66,6 +66,12 @@ LABEL_MODES = ("legend", "inline", "none")
 #: Where a ``labels="legend"`` table is placed relative to the bar.
 LEGEND_SIDES = ("right", "below")
 
+#: The type role both legend columns are drawn at. Named rather than repeated
+#: as a literal because ``_build_legend``'s readability guard tests this role's
+#: fraction against the scale it applied: if the drawn role and the checked
+#: role ever drift apart, the guard silently starts grading the wrong thing.
+LEGEND_ROLE = "micro"
+
 
 class SegmentedBar(VGroup):
     """A proportional bar cut into named, coloured segments.
@@ -310,14 +316,16 @@ class SegmentedBar(VGroup):
         if show_values:
             value_mobs = [
                 typography.text(
-                    "micro", self._value_text(i), frame_width=frame_width,
+                    LEGEND_ROLE, self._value_text(i), frame_width=frame_width,
                     color=theme.FG_MUTED, mono=True,
                 )
                 for i in range(len(self.names))
             ]
 
         name_mobs = [
-            typography.text("micro", name, frame_width=frame_width, color=theme.FG)
+            typography.text(
+                LEGEND_ROLE, name, frame_width=frame_width, color=theme.FG
+            )
             for name in self.names
         ]
 
@@ -351,23 +359,36 @@ class SegmentedBar(VGroup):
         # Guard it, following the precedent of the constructor's inline check:
         # a legend too narrow for its own names is refused rather than drawn
         # illegibly, and the message names both constants and both ways out.
+        #
+        # The test is the TYPE SIZE — the role's fraction times the factor
+        # applied above — and deliberately NOT `typography.measure`, which is a
+        # bounding box. A bounding box depends on which glyphs are in the
+        # string, not on how big the type is: "sources", "runs" and "errors"
+        # have no ascender, descender or capital between them, so they measure
+        # their x-height, 0.0174 at this role, and tripped this guard at scale
+        # 1.0 in a legend with four units to spare. The message then advised
+        # widening a legend that was already wide enough, and none of its
+        # escapes could work. `measure`'s own docstring says the box "errs
+        # toward passing borderline text" — true for a string with descenders,
+        # false for an x-height-only one, which is what this walked into.
+        # Scale is what legibility actually turns on, so scale is what is
+        # checked, and the guard can now only fire when something really was
+        # shrunk.
         if strict_legend:
-            worst = min(
-                typography.measure(mob, frame_width)
-                for mob in (*name_mobs, *value_mobs)
-            )
-            if worst < typography.MIN_READABLE:
+            typed_share = typography.fraction(LEGEND_ROLE) * scale
+            if typed_share < typography.MIN_READABLE:
                 raise typography.UnreadableTextError(
                     f"legend_width={legend_width:.3g} is too narrow for these "
-                    f"names at frame_width={frame_width:.3g}: the legend would "
-                    f"be typed at {worst:.4f} of frame height, below "
+                    f"names at frame_width={frame_width:.3g}: the legend is "
+                    f"scaled to {scale:.3g}, typing role {LEGEND_ROLE!r} at "
+                    f"{typed_share:.4f} of frame height, below "
                     f"typography.MIN_READABLE={typography.MIN_READABLE}. The "
                     f"row needs {name_left + text_needed + theme.PAD_SM:.3g} "
-                    "units. Either widen legend_width (legend_side='below' "
-                    "gives the legend the bar's full width), shorten the "
-                    "segment names, or type the bar for a tighter shot with a "
-                    "smaller frame_width. Pass strict_legend=False to draw it "
-                    "anyway."
+                    f"units and has {legend_width:.3g}. Either widen "
+                    "legend_width (legend_side='below' gives the legend the "
+                    "bar's full width), shorten the segment names, or type the "
+                    "bar for a tighter shot with a smaller frame_width. Pass "
+                    "strict_legend=False to draw it anyway."
                 )
 
         rows = VGroup()
