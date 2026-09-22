@@ -110,3 +110,12 @@ TRAPS WORTH REMEMBERING
 NEXT SESSION
   Highest-priority open item is `space-glyph-readability` (get a fresh pair of
   eyes on the bare `r` chip), then `narration-pass`.
+
+  LATE FRAME REVIEW (after the first commit, on the shipped cut):
+  9.  B4's far side was composed wrong. The vector field was placed on the
+      convoy's landing point, so half of it sat OUTSIDE the model box it is
+      meant to be inside, and the struck-through ghost and the caption were
+      both drawn across the box's own border. Vectors and ghost moved to
+      x = 26.0, well inside the wall; caption dropped to y = -1.5. Re-rendered
+      and re-checked. Nothing else moved: the other seven review frames are
+      byte-for-byte the same beats.

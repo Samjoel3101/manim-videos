@@ -535,8 +535,10 @@ class TheTokenizer(MovingCameraScene):
             rate_func=motion.MOVE,
         )
 
-        # Past the wall there is no text anywhere. Only vectors.
-        s.door_vectors.move_to(convoy.get_center())
+        # Past the wall there is no text anywhere. Only vectors — and PAST it:
+        # placed on the convoy's landing point they straddled the wall, half
+        # the field sitting outside the machine they are supposed to be inside.
+        s.door_vectors.move_to(np.array([26.0, 2.0, 0.0]))
         self._stage(s.door_vectors)
         self.play(
             LaggedStart(
@@ -559,7 +561,7 @@ class TheTokenizer(MovingCameraScene):
             show_id=True,
             color=theme.TOKEN,
         )
-        ghost_chip.move_to(np.array([float(convoy.get_center()[0]), 3.8, 0.0]))
+        ghost_chip.move_to(np.array([26.0, 4.0, 0.0]))
         strike = Line(
             ghost_chip.box.get_left() + LEFT * 0.1,
             ghost_chip.box.get_right() + RIGHT * 0.1,
@@ -573,7 +575,9 @@ class TheTokenizer(MovingCameraScene):
 
         self.ids_caption = self._caption(
             "no letters went through",
-            np.array([22.3, -1.0, 0.0]),
+            # Clear of the box's bottom edge, which the border was drawn
+            # straight through at -1.0.
+            np.array([22.3, -1.5, 0.0]),
             SHOT_IDS,
             color=theme.EMBED,
         )
