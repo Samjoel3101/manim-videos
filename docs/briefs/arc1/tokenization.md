@@ -34,48 +34,57 @@ of truth for pacing. This brief stays here as the design record.
 
 ---
 
-## Step 1 — blocking pre-flight, before a single chip is drawn
+## Step 1 — the numbers, already verified
 
-Four numbers appear on screen. **Three of them are currently placeholders and
-the film must not ship with placeholders on chips.** Run this first, in an
-environment with network access, and paste the real output into
-`videos/tokenization/script.md`:
+**The pre-flight has been run. These are real `o200k_base` values, not
+placeholders.** Bake them into the scene as literals; the render must not need
+network access or `tiktoken` at runtime.
 
-```bash
-.venv/bin/pip install tiktoken
-.venv/bin/python - <<'PY'
-import tiktoken
-enc = tiktoken.get_encoding("o200k_base")   # GPT-4o; swap if you name another
-print("n_vocab:", enc.n_vocab)
-for s in ["How many r's in strawberry?", "strawberry"]:
-    ids = enc.encode(s)
-    print(repr(s), len(ids))
-    for i in ids:
-        print("   ", i, repr(enc.decode([i])))
-PY
+```
+encoding   o200k_base      n_vocab 200019  (199,998 ranks + 21 special tokens)
+
+"How many r's in strawberry?"  →  7 tokens
+     5299  'How'
+     1991  ' many'
+      428  ' r'
+      885  "'s"
+      306  ' in'
+   101830  ' strawberry'      ← the whole word. one token.
+       30  '?'
+
+"strawberry"   standalone  →  302 'st' · 1618 'raw' · 19772 'berry'
+" strawberry"  with space  →  101830
+
+27 characters · 4 r's in the sentence · 3 r's inside "strawberry"
 ```
 
-Decide from the output and record the decision in `script.md`:
+To re-check any of this offline:
 
-1. **Which encoding the film names on screen.** Pick one and caption it. Mixing
-   `cl100k_base` counts with an `o200k_base` vocabulary size is the exact kind
-   of error the snapshot gate cannot see.
-2. **The real token ids** for beat 4's chips. `TokenStrip` will invent plausible
-   ids via `fake_token_id` if you don't supply them — do **not** let it here.
-   Pass `token_ids=[...]` explicitly with the verified values.
-3. **The real split of `strawberry`.** The brief assumes `st · raw · berry`. If
-   the chosen encoding splits it differently, **change the chips, not the
-   claim** — the claim that must survive is "no piece is a bare `r`", which
-   holds under every GPT-family encoding.
-4. **The vocabulary counter.** Round and caption it: `≈ 200,000`, not a precise
-   figure that may or may not include special tokens.
+```bash
+TIKTOKEN_CACHE_DIR=/tmp/claude-0/-home-user/c737a293-de3a-42e4-86f2-1f824c712d91/scratchpad/enc/cache \
+  .venv/bin/python -c "
+import tiktoken; e=tiktoken.get_encoding('o200k_base')
+ids=e.encode(\"How many r's in strawberry?\")
+print(ids, [e.decode([i]) for i in ids])"
+```
 
-If network access is unavailable, every affected number must carry a visible
-`illustrative` caption on screen and the fact must be recorded in
-`claude-progress.txt`. Do not silently ship an invented token id — the whole
-film is an argument that these specific integers are what the model receives.
+### Two things the pre-flight corrected — read before building
 
----
+The first draft of this brief was **wrong** on both, and the film is better for
+the correction. Do not reintroduce either.
+
+1. **` strawberry` is ONE token in the sentence, id `101830`.** It splits into
+   three pieces only when tokenized *standalone*, without the leading space.
+   The sentence produces **seven** chips, not nine. The film's claim is
+   therefore not "three pieces, none of which is an `r`" — it is the stronger
+   **"one number, with nothing inside it to count."**
+2. **The sentence has four `r`s; "strawberry" has three.** The `r` in `r's`
+   is the fourth. B1 pulses only the three inside the word, and the assertion
+   counts `"strawberry".count("r")`, never the whole question.
+
+The standalone split keeps its place in B2 as the leading-space demonstration:
+with the space it is one token, without it three. Same characters, different
+answer — which is the point.
 
 ## The set — `scenes/tokenizer_set.py`
 
@@ -186,10 +195,10 @@ do not decorate it.
 |---|---|---|
 | 0.00–5.00 | **B0 Cold open** — the strawberry question, a wrong answer, stillness | chat, W=13 |
 | 5.00–11.50 | **B1 The line** — characters on the bench, the three r's visible once, then the wipe | pan right, W=13 → 15 |
-| 11.50–21.00 | **B2 The split** — chips snap in; `st\|raw\|berry`; the leading space | pan right, W=15 |
-| 21.00–33.50 | **B3 The table** — the vocabulary wall, then three worked merges and the ordered list | tilt up, W=15 → 12 |
-| 33.50–40.00 | **B4 The ids** — chips flip to integers, pass the model wall | pan right, W=12 → 14 |
-| 40.00–51.00 | **B5 The meter** — price, context, latency; en 7 / hi 32 / my 72; `10×` | swing down, W=14 → 18 |
+| 11.50–22.50 | **B2 The split** — seven chips; the whole word is one of them; then the space comes off | pan right, W=15 |
+| 22.50–34.00 | **B3 The table** — the vocabulary wall, then three worked merges and the ordered list | tilt up, W=15 → 12 |
+| 34.00–40.50 | **B4 The ids** — chips flip to the real integers; `101830` is the punchline | pan right, W=12 → 14 |
+| 40.50–51.00 | **B5 The meter** — price, context, latency; en 7 / hi 32 / my 72; `10×` | swing down, W=14 → 18 |
 | 51.00–59.50 | **B6 The bench, and where it sits** — pull back, then the bench shrinks into one bay of the Arc 0 plant | W=60 |
 
 Nominal total **59.50 s** against a 60.0 s cap. The Arc 0 film measured 0.12 s
@@ -226,76 +235,93 @@ That is why `camera.focus` returns an animation rather than playing one.
 |---|---|---|
 | 5.00 | 1.30 | `camera.focus(split_bay, width=SHOT_BENCH)` **played with** the question flying out of the bubble onto the bench |
 | 6.30 | 0.80 | 26 character cells settle, `motion.enter` with `lag=motion.LAG` |
-| 7.10 | 1.00 | the three `r` cells pulse in `WARN`; counter `3` `FadeIn` |
+| 7.10 | 1.00 | the three `r` cells **inside `strawberry`** pulse in `WARN`; counter `3` `FadeIn`. The `r` in `r's` does **not** pulse — there are four in the sentence and three in the word |
 | 8.10 | 0.70 | hold |
-| 8.80 | 1.20 | **the wipe** — every cell drops to `FG_FAINT`, left to right, `LaggedStart`, `rate_func=motion.SHARP`; the counter goes dark with them |
+| 8.80 | 1.20 | **the wipe** — all 27 cells drop to `FG_FAINT`, left to right, `LaggedStart`, `rate_func=motion.SHARP`; the counter goes dark with them |
 | 10.00 | 0.80 | caption `this is the last frame with letters in it.` |
 | 10.80 | 0.70 | hold |
 
-### B2 — The split · 11.50–21.00 (9.50 s)
+### B2 — The split · 11.50–22.50 (11.00 s)
+
+The heart of the film. It got the extra 1.5 s because it now carries two
+claims: the whole word is one token, and the leading space is what decides that.
 
 | t | Δ | Action |
 |---|---|---|
 | 11.50 | 1.20 | dark cells collapse toward the `SPLIT` bay |
-| 12.70 | 1.20 | `TokenStrip` chips snap in, `LaggedStart`, `rate_func=motion.SNAP` — arrive via `FadeIn`, never `.animate.set_opacity` |
+| 12.70 | 1.20 | **seven** `TokenChip`s snap in, `LaggedStart`, `rate_func=motion.SNAP`, via `FadeIn` — never `.animate.set_opacity` |
 | 13.90 | 0.70 | hold |
-| 14.60 | 0.90 | the `st` / `raw` / `berry` chips lift `0.3` and hold; caption `strawberry · three pieces` |
-| 15.50 | 1.00 | hold |
-| 16.50 | 0.90 | the ` many` chip scales to fill ~a quarter of the frame |
-| 17.40 | 0.80 | its `␣` glyph lights in `EMBED` (`TokenChip(show_space=True)`); caption `the space belongs to the word after it` |
-| 18.20 | 1.20 | hold |
-| 19.40 | 0.90 | chip returns to the row; captions out |
-| 20.30 | 0.70 | hold |
+| 14.60 | 1.00 | the ` strawberry` chip — by far the widest — lifts `0.3` and glows; caption `one word · one token` |
+| 15.60 | 1.20 | hold. Let this land; it is the film's central surprise |
+| 16.80 | 0.90 | the chip scales to fill ~a third of the frame; its leading `␣` glyph lights in `EMBED` (`TokenChip(show_space=True)`) |
+| 17.70 | 0.80 | caption `the space belongs to the word` |
+| 18.50 | 1.10 | **the space is stripped** — the `␣` glyph flies off, and the chip shatters into three: `st` `raw` `berry` |
+| 19.60 | 1.00 | caption swaps to `without it, three` |
+| 20.60 | 0.90 | hold |
+| 21.50 | 0.70 | the three re-merge into one chip and it returns to the row; captions out |
+| 22.20 | 0.30 | hold |
 
-### B3 — The table · 21.00–33.50 (12.50 s) — *longest beat*
+`TokenStrip` takes the seven tokens as an explicit sequence — do not let
+`simple_tokenize` derive them, it will not reproduce `o200k_base`:
+
+```python
+TOKENS = ["How", " many", " r", "'s", " in", " strawberry", "?"]
+IDS    = [5299,  1991,    428,  885,  306,   101830,        30]
+SPLIT  = ["st", "raw", "berry"]          # ids 302, 1618, 19772
+```
+
+### B3 — The table · 22.50–34.00 (11.50 s)
 
 | t | Δ | Action |
 |---|---|---|
-| 21.00 | 1.20 | `camera.focus(vocab_wall, width=SHOT_TIGHT)` — tilt up |
-| 22.20 | 1.00 | wall cells build, `LaggedStart` with a very small `lag_ratio`; most cells sub-`MIN_READABLE` and therefore decoration, by design |
-| 23.20 | 0.70 | counter `≈ 200,000` + caption `every piece the model can ever see` |
-| 23.90 | 1.00 | hold |
-| 24.90 | 1.10 | `camera.focus(table_bay, width=SHOT_TIGHT)` — back down |
-| 26.00 | 0.70 | `l o w` / `l o w e r` / `n e w e s t` appear as loose letters |
-| 26.70 | 0.90 | **merge 1** — the `l`+`o` pairs highlight in `WARN` across all rows, snap together into `lo`, and `lo` writes itself onto the ordered list |
-| 27.60 | 0.90 | **merge 2** — `lo`+`w` → `low` |
-| 28.50 | 0.90 | **merge 3** — `e`+`s` → `es` |
-| 29.40 | 0.80 | hold |
-| 30.20 | 1.60 | the list scrolls upward, accelerating out of legibility; its counter runs `merge 4` → `merge 50,000` |
-| 31.80 | 0.80 | caption `counted, not chosen` |
-| 32.60 | 0.90 | hold |
+| 22.50 | 1.20 | `camera.focus(vocab_wall, width=SHOT_TIGHT)` — tilt up |
+| 23.70 | 1.00 | wall cells build, `LaggedStart` with a very small `lag_ratio`; most cells sub-`MIN_READABLE` and therefore decoration, by design |
+| 24.70 | 0.70 | counter `≈ 200,000` + caption `every piece the model can ever see` |
+| 25.40 | 0.70 | hold |
+| 26.10 | 1.10 | `camera.focus(table_bay, width=SHOT_TIGHT)` — back down |
+| 27.20 | 0.70 | `l o w` / `l o w e r` / `n e w e s t` appear as loose letters |
+| 27.90 | 0.90 | **merge 1** — the `l`+`o` pairs highlight in `WARN` across all rows, snap together into `lo`, and `lo` writes itself onto the ordered list |
+| 28.80 | 0.90 | **merge 2** — `lo`+`w` → `low` |
+| 29.70 | 0.90 | **merge 3** — `e`+`s` → `es` |
+| 30.60 | 0.50 | hold |
+| 31.10 | 1.60 | the list scrolls upward, accelerating out of legibility; its counter runs `merge 4` → `merge 50,000` |
+| 32.70 | 0.80 | caption `counted, not chosen` |
+| 33.50 | 0.50 | hold |
 
 The merge example is **ours**, in the shape of the BPE paper's worked example.
 Do not caption it as the paper's.
 
-### B4 — The ids · 33.50–40.00 (6.50 s)
+### B4 — The ids · 34.00–40.50 (6.50 s)
 
 | t | Δ | Action |
 |---|---|---|
-| 33.50 | 1.20 | `camera.focus(ids_bay, width=SHOT_IDS)` **played with** the chips flipping — text face rotates out, integer face rotates in |
-| 34.70 | 0.80 | integers settle in `EMBED` |
-| 35.50 | 0.70 | hold |
-| 36.20 | 1.00 | the row slides right through a narrow slot in the `DOOR` wall, `MoveAlongPath` on a `routing.join` path |
-| 37.20 | 0.70 | far side of the wall: vectors only, no text anywhere |
-| 37.90 | 0.80 | the three `strawberry` chips ghost in above the row at 25% and a strike-through crosses them |
-| 38.70 | 0.70 | caption `no letters went through` |
-| 39.40 | 0.60 | hold |
+| 34.00 | 1.20 | `camera.focus(ids_bay, width=SHOT_IDS)` **played with** the chips flipping — text face rotates out, integer face rotates in |
+| 35.20 | 0.70 | the seven integers settle in `EMBED`: `5299 · 1991 · 428 · 885 · 306 · 101830 · 30` |
+| 35.90 | 0.90 | **`101830` enlarges and glows.** Caption: `one word · one number` |
+| 36.80 | 0.80 | hold — this is the answer to the cold open |
+| 37.60 | 0.90 | the row slides right through the slot in the `DOOR` wall, `MoveAlongPath` on a `routing.join` path |
+| 38.50 | 0.70 | far side of the wall: vectors only, no text anywhere |
+| 39.20 | 0.80 | caption `nothing in 101830 is an "r"` |
+| 40.00 | 0.50 | hold |
 
-### B5 — The meter · 40.00–51.00 (11.00 s)
+`101830` is the film's punchline and must be legible — size it at `typography`
+role `heading` against `SHOT_IDS`, not `micro`.
+
+### B5 — The meter · 40.50–51.00 (10.50 s)
 
 | t | Δ | Action |
 |---|---|---|
-| 40.00 | 1.30 | `camera.focus(meter_bay, width=SHOT_METER)` — swing down the spur |
-| 41.30 | 1.10 | three counters fill: `price $ / 1M tokens in · out`, `context ███░░ / 128,000`, `latency prefill ∝ in · decode ∝ out` |
-| 42.40 | 0.80 | hold |
-| 43.20 | 0.90 | English bar draws to `7` |
-| 44.10 | 1.10 | Hindi bar draws to `32` |
-| 45.20 | 1.40 | Burmese bar draws to `72` and **overruns the frame edge** — let it leave the shot; that is the point |
-| 46.60 | 0.90 | caption `median tokens · 2,033 parallel texts · MASSIVE · cl100k_base` |
-| 47.50 | 0.90 | hold |
-| 48.40 | 0.90 | the three counters above re-read with the Burmese figure |
-| 49.30 | 0.70 | `10×` stamps across the bay in `WARN` |
-| 50.00 | 1.00 | hold |
+| 40.50 | 1.30 | `camera.focus(meter_bay, width=SHOT_METER)` — swing down the spur |
+| 41.80 | 1.10 | three counters fill: `price $ / 1M tokens in · out`, `context ███░░ / 128,000`, `latency prefill ∝ in · decode ∝ out` |
+| 42.90 | 0.70 | hold |
+| 43.60 | 0.90 | English bar draws to `7` |
+| 44.50 | 1.10 | Hindi bar draws to `32` |
+| 45.60 | 1.40 | Burmese bar draws to `72` and **overruns the frame edge** — let it leave the shot; that is the point |
+| 47.00 | 0.90 | caption `median tokens · 2,033 parallel texts · MASSIVE · cl100k_base` |
+| 47.90 | 0.80 | hold |
+| 48.70 | 0.80 | the three counters above re-read with the Burmese figure |
+| 49.50 | 0.60 | `10×` stamps across the bay in `WARN` |
+| 50.10 | 0.90 | hold |
 
 **The caption on the bars is not optional and is not decoration.** These are
 medians over a parallel corpus, not token counts for the sentence on screen.
@@ -390,30 +416,34 @@ Expect roughly 45–55 stops. Probe before building:
 
 ## Token accounting — the rule that cannot be broken
 
-Arc 0 shipped a cut that revealed more words than it had emitted tokens, and
-every automated gate passed. The gates compare a 16×16 luminance grid; they are
-structurally incapable of noticing that a correct-looking animation is making a
-false claim. This film has three equivalents, and each gets an assertion in the
-scene rather than a careful eye:
+Arc 0 shipped a cut that revealed more words than it had emitted tokens, with
+every gate green. The gates compare a 16×16 luminance grid; they cannot see a
+correct-looking animation making a false claim. **The scripted version of this
+film contained exactly that class of error twice, and the pre-flight caught
+both.** Each of these assertions exists because one of them nearly shipped.
 
-1. **The character count is one number.** `CharacterRow` derives its cells from
-   the question string. The beat ends with
-   `assert row.r_count == question.lower().count("r")` — if the copy on screen
-   ever changes, the `3` changes with it or the render fails.
-2. **The chips and the ids are one list.** `TokenStrip` is constructed once,
-   with explicit verified `token_ids`, and B4 flips *that* object. There is no
-   second list of ids anywhere in the scene. Assert
-   `len(strip.chips) == len(strip.token_ids)`.
-3. **`strawberry` is exactly the chips that spell it.** Assert that the chips
-   the film lifts in B2 and strikes through in B4 are the same objects, and
-   that `"".join(c.token for c in strawberry_chips) == "strawberry"`. If the
-   verified encoding splits it into four pieces rather than three, this
-   assertion fails loudly and the caption gets fixed — which is the point.
+```python
+QUESTION = "How many r's in strawberry?"
+TOKENS   = ["How", " many", " r", "'s", " in", " strawberry", "?"]
+IDS      = [5299,  1991,    428,  885,  306,   101830,        30]
+SPLIT    = ["st", "raw", "berry"]
+```
 
-None of these are polish. Each is a place where the film could pass every gate
-while asserting something untrue.
-
----
+1. **The r counter counts the word, not the sentence.**
+   `assert row.r_count == "strawberry".count("r") == 3`, and
+   `assert QUESTION.lower().count("r") == 4` — the two differ on purpose, and
+   the second is the trap. Only the three cells inside `strawberry` pulse.
+2. **The chips and the ids are one list.** `TokenStrip` is built once with
+   explicit `token_ids=IDS`; B4 flips *that* object. There is no second list
+   anywhere. `assert len(strip.chips) == len(IDS) == 7`.
+3. **The chips reconstruct the question exactly.**
+   `assert "".join(TOKENS) == QUESTION` — this is what fails loudly if anyone
+   "tidies" the leading spaces, which would silently destroy the film's claim.
+4. **The split reconstructs the word, and is three pieces, and none is an `r`.**
+   `assert "".join(SPLIT) == "strawberry"`,
+   `assert len(SPLIT) == 3`, `assert "r" not in SPLIT`.
+5. **The character row is 27 cells**, derived from `QUESTION`, never written
+   down. `assert len(row.cells) == len(QUESTION) == 27`.
 
 ## Definition of done
 
