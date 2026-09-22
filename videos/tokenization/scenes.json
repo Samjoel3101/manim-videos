@@ -1,0 +1,15 @@
+{
+  "title": "Tokenization: why the model never reads your words",
+  "slug": "tokenization",
+  "note": "One continuous shot, so one scene. Tokenization is the whole film: the set is built once in tokenizer_set.py and the camera walks it left to right along a bench, then drops down the consequence spur to the meter and pulls all the way out. There is deliberately nothing to concatenate. The budget is 59.50s nominal against a HARD 60.0s cap, laid out per animation in script.md; the beat boundaries are fixed and re-timing one animation means re-balancing its neighbours INSIDE its own beat. Two of the film's claims were false in the scripted design and were corrected by a tiktoken pre-flight before any of this was built: ' strawberry' is ONE token in this sentence (id 101830), not three, and the sentence has four r's while the word has three. Five assertions in scene_tokenization.py and tokenizer_set.py.validate() carry those corrections in code, because the gates compare a 16x16 luminance grid and cannot see a correct-looking animation making a false claim.",
+  "scenes": [
+    {
+      "order": 1,
+      "class": "Tokenization",
+      "module": "scene_tokenization.py",
+      "budget_seconds": 60,
+      "actual_seconds": 59.5,
+      "measured_at_profile": "final"
+    }
+  ]
+}

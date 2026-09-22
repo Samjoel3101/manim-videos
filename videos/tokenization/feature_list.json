@@ -1,0 +1,41 @@
+{
+  "video": "Tokenization: why the model never reads your words",
+  "slug": "tokenization",
+  "features": [
+    {
+      "id": "set",
+      "title": "TokenizerSet \u2014 the bench, all coordinates, self-validating",
+      "status": "done",
+      "priority": 1,
+      "notes": "scenes/tokenizer_set.py. Seven bays on one left-to-right line plus a consequence spur. validate() re-derives every figure from the drawn mobjects: two routing assertions over paths joined from the drawn rails, four bay-separation checks, the character row against the shot it is read in, the payload-is-one-list check, the zoom budget (59.93 against SHOT_WIDE=60, 0.1% off), an explicit assertion that the pull-back frame clears the bottom of the meter bay, a typography.audit of every pull-back label, and a check that the shrunken bench fits INSIDE the ghost node."
+    },
+    {
+      "id": "props",
+      "title": "CharacterRow, MergeTable, VocabWall, GhostCircuit",
+      "status": "done",
+      "priority": 2,
+      "notes": "scenes/props.py. LOCAL, and staying local: none has a second consumer, so the AGENTS.md promotion rule says they do not go in /lib yet. CharacterRow is the likeliest future promotion (the Forcing JSON episode is the same character/token mismatch) and gets a structural test at that moment, not before."
+    },
+    {
+      "id": "scene",
+      "title": "Tokenization \u2014 the seven-beat continuous shot",
+      "status": "done",
+      "priority": 3,
+      "notes": "scenes/scene_tokenization.py. 59.50s nominal, measured under the 60.0s cap at `final`. One beat method per beat, each carrying its target timecode. Five token-accounting assertions, module level and in-beat."
+    },
+    {
+      "id": "deck",
+      "title": "SlidesTokenization \u2014 the click deck",
+      "status": "done",
+      "priority": 4,
+      "notes": "45 animations -> 40 stops, total 59.500000s, one suppressed region (B3's runaway merge list, a ramp). Copies no timing. Shortest chunk 0.70s, so no stop is a single frame at any profile."
+    },
+    {
+      "id": "promote-character-row",
+      "title": "Promote CharacterRow to /lib when a second video needs it",
+      "status": "planned",
+      "priority": 5,
+      "notes": "Not now. The moment the Forcing JSON episode wants per-character cells with a wipe, this moves to lib/components/ WITH a structural test and a snapshot case, per AGENTS.md rule 3."
+    }
+  ]
+}

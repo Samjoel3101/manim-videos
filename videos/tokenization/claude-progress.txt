@@ -1,0 +1,54 @@
+# Progress log — Tokenization: why the model never reads your words
+
+Newest entry last. One entry per session: what you did, what you tried that did not work, and what the next session should pick up.
+
+--------------------------------------------------------------------
+SETUP — project scaffolded by scripts/new_video.py. No scenes yet.
+
+## Session — build the film (Arc 1, Ep 1)
+
+Built the whole video from `docs/briefs/arc1/tokenization.md`: set, props, scene,
+deck, manifests. Evaluator green.
+
+What is worth knowing next time:
+
+- **`scenes/props.py` cannot be imported by bare name.** Every video in this repo
+  has one, the deck route puts each video's `scenes/` on a FLAT `sys.path`, and
+  `tests/test_slides_convention.py` builds all three films in one pytest session
+  — so whichever `props` is imported first wins the name for the process and this
+  film's set failed with a name error about a class sitting in its own directory.
+  `tokenizer_set.py` loads it by file location under a unique module name. If a
+  fourth video appears, it needs the same treatment (or a rename).
+- **`FadeIn` animates UP TO a mobject's current opacity.** Anything built at
+  opacity 0 fades in to 0. `StreamingBubble` builds its text that way, so beat 0
+  streamed an EMPTY bubble through a whole draft; it needs `reveal()` first.
+  Everything else that arrives later is simply left out of the scene graph until
+  its beat rather than parked at zero.
+- **An animation adds its mobject to the scene's TOP level.** Wrapping
+  already-added children in a fresh `VGroup` and animating that draws them twice
+  and makes the later `FadeOut` a no-op on the originals. Every clear-down here
+  therefore fades the same objects the arrival added — splatted, not wrapped.
+- **Pango lays a `Text` out against the RENDER's pixel width.** A 45-unit caption
+  at `SHOT_WIDE` wrapped to two lines at 480p and would not have at 1080p, i.e.
+  a caption whose shape depends on the profile it was reviewed in. Long wide-shot
+  captions now carry explicit line breaks.
+- **A wide label added before a bay filled at full opacity is never seen.** The
+  QUESTION marquee was drawn underneath the chat window for the whole pull-back
+  and nothing but a frame said so. `wide_labels` is added LAST.
+- **`PipelineBox`'s title is sized for the pull-back and hangs outside the frame.**
+  At `SHOT_IDS` it was cropped in half by the top edge, so the model box carries a
+  close-up name of its own and the big one joins `wide_labels`.
+- `.animate.scale` on a container `VGroup` was probed before beat 6 relied on it
+  (the set shrinks into the ghost node while the camera holds). At manim 0.21 it
+  does NOT dim the children; the repo's standing warning did not reproduce.
+
+Numbers: `5299 · 1991 · 428 · 885 · 306 · 101830 · 30`, `302 · 1618 · 19772`,
+n_vocab 200,019, 27 characters, 4 r's in the sentence and 3 in the word — all
+verified against `o200k_base` in the pre-flight recorded in the brief, and baked
+in as literals so the render needs no network and no `tiktoken`. Beat 5's
+`en 7 / hi 32 / my 72` are medians over the MASSIVE parallel corpus under
+`cl100k_base` and are captioned as such on screen; the `× 10` is `72 / 7`. The
+context bar and `$ / 1M tokens` are SCHEMATIC — deliberately carrying no figure,
+because a real price dates the film within weeks. The three worked merges
+(`l+o`, `lo+w`, `e+s`) are ILLUSTRATIVE, in the shape of the BPE paper's example,
+and the film does not claim they are `o200k_base`'s first three.

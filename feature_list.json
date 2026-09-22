@@ -277,6 +277,18 @@
         "docs/slides.md covers how the split works and how to author a scene that converts",
         "The lifecycle deck still produces 97 animations and 70 stops"
       ]
+    },
+    {
+      "id": "lib-video-local-props-namespace",
+      "priority": 22,
+      "status": "planned",
+      "title": "A video's scenes/props.py must not depend on winning a flat module name",
+      "note": "Found building videos/tokenization. Every video has a scenes/props.py; the deck route and `manim render <path>` put each video's scenes/ on a FLAT sys.path; and tests/test_slides_convention.py builds every film in one pytest session. So the first `props` imported wins the name for the whole process, and the tokenization set failed with a name error about a class sitting in its own directory \u2014 passing in isolation, failing in the suite. tokenizer_set.py works around it by loading its props by file location under a unique module name. A fourth video will hit this; the workaround should be a helper rather than copied prose.",
+      "acceptance": [
+        "A video's set module imports its local props without depending on import order",
+        "The workaround lives in one place (lib/ or scripts/new_video.py's scaffold), not copied per video",
+        "tests/test_slides_convention.py still passes with every video built in one session"
+      ]
     }
   ]
 }

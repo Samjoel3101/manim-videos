@@ -889,3 +889,55 @@ SESSION — graduated the click deck from spike to enforced convention.
     about. A legitimate choreography change therefore fails the unit gate until
     the deck's constants are updated - deliberate, but it is a step a future
     session must not paper over without looking at the deck.
+
+---
+
+## Session — Arc 1 Ep 1: the `tokenization` video, built
+
+Built `videos/tokenization/` from `docs/briefs/arc1/tokenization.md`: the set,
+four local props, the seven-beat continuous scene, the deck, both manifests.
+Evaluator green including `render`. Measured **59.500 s at `final`** (3570 frames
+at 60fps) against the hard 60.0 s cap; `assets/tokenization.mp4` is that cut,
+4.2M. Deck: 45 animations -> 40 stops, total 59.500000 s, one suppressed region.
+
+Every beat's `run_time`s sum EXACTLY to the brief's beat length, checked
+statically as well as by the probe: 5.00 / 6.50 / 11.00 / 11.50 / 6.50 / 10.50 /
+8.50.
+
+Nothing was promoted to `/lib`. `CharacterRow`, `MergeTable`, `VocabWall` and
+`GhostCircuit` are local one-offs with no second consumer, so the AGENTS.md
+promotion rule says they stay in the video. `CharacterRow` is the likeliest
+future promotion and is flagged `planned` in the video's `feature_list.json`.
+
+**Five repo-level hazards this build hit, all recorded in
+`videos/tokenization/claude-progress.txt` with the frame that caught each:**
+
+1. **`scenes/props.py` cannot be imported by bare name any more.** Every video
+   has one; the deck route puts each video's `scenes/` on a FLAT `sys.path`; and
+   `tests/test_slides_convention.py` builds all three films in one pytest
+   session. So the first `props` imported wins the name for the process, and
+   this film's set failed with a name error about a class in its own directory —
+   passing in isolation and failing in the suite. `tokenizer_set.py` now loads
+   it by file location under a unique module name. **A fourth video needs the
+   same treatment**, and a `lib` helper for it would be a reasonable harness
+   item if a fifth appears.
+2. **`FadeIn` animates UP TO a mobject's current opacity.** Anything built at
+   opacity 0 fades in to 0. `lib/components/chat_ui.StreamingBubble` builds its
+   text that way by design (it expects `reveal()`), and beat 0 streamed an
+   entirely EMPTY bubble through a whole draft render with every gate green.
+3. **An animation adds its mobject to the scene's TOP level.** Wrapping
+   already-added children in a fresh `VGroup` to fade them out draws them twice
+   and leaves the originals on screen. Clear-downs must fade the same objects
+   the arrival added.
+4. **Pango lays a `Text` out against the RENDER's pixel width, not the frame's.**
+   A 45-unit caption at a 60-unit shot wrapped to two lines at 480p and would not
+   have at 1080p — i.e. a caption whose shape depends on the profile it was
+   reviewed in. Long wide-shot captions need explicit line breaks.
+5. **`PipelineBox`'s title is sized for the pull-back and hangs OUTSIDE its
+   frame**, so any close-up of the box crops it. It needs the same close-up /
+   wide-label cross-fade a `Station` does for itself.
+
+Also probed and **not** reproduced: the standing warning that `.animate.scale` on
+a container `VGroup` drags its children's opacity down. At manim 0.21 it does
+not, which is what let beat 6 shrink the whole set into the ghost node while the
+camera holds still.
