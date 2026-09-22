@@ -11,6 +11,7 @@ new render has been looked at.
 |---|---|---|
 | `chatgpt_message_journey.mp4` | `videos/chatgpt_message_journey` — `TheFactory` | `preview` (720p30, ~28s, 1.5M) |
 | `chatgpt_request_lifecycle.mp4` | `videos/chatgpt_request_lifecycle` — `TheLifecycle` | `final` (1080p60, 44.1s, 4.1M) |
+| `tokenization.mp4` | `videos/tokenization` — `TheTokenizer` | `final` (1080p60, 59.5s, 4.6M) |
 
 Regenerate with:
 

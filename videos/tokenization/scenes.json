@@ -1,0 +1,15 @@
+{
+  "title": "Tokenization: why the model never reads your words",
+  "slug": "tokenization",
+  "note": "One continuous shot, so one scene. TheTokenizer is the whole film: the bench is built once in tokenizer_set.py and the camera walks it. There is deliberately nothing to concatenate — cutting between scenes is what this format exists to avoid.",
+  "scenes": [
+    {
+      "order": 1,
+      "class": "TheTokenizer",
+      "module": "scene_tokenization.py",
+      "budget_seconds": 59.5,
+      "actual_seconds": 59.5,
+      "measured_at": "final profile, 1080p60, 3570 frames"
+    }
+  ]
+}

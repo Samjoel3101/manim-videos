@@ -889,3 +889,60 @@ SESSION — graduated the click deck from spike to enforced convention.
     about. A legitimate choreography change therefore fails the unit gate until
     the deck's constants are updated - deliberate, but it is a step a future
     session must not paper over without looking at the deck.
+
+--------------------------------------------------------------------
+SESSION — `videos/tokenization` built: Arc 1 Episode 1, "Tokenization: why the
+model never reads your words". Third video in the repo.
+
+  SHIPPED. One continuous 59.50s shot, `TheTokenizer`. Five Evaluator gates
+  green on --video tokenization. `final` render measured 59.500s (3570 frames
+  at 1080p60) against the 60.0s cap, recorded in scenes.json and committed to
+  assets/tokenization.mp4 (4.6M — still comfortably in the single-digit-MB
+  band assets/README.md describes). Deck: 47 animations -> 40 stops, one
+  suppressed region.
+
+  NEW FILES. videos/tokenization/{scenes/tokenizer_set.py,
+  scenes/tokenizer_props.py, scenes/scene_tokenization.py, slides.py,
+  script.md, scenes.json, feature_list.json}. NOTHING WAS PROMOTED INTO /lib
+  and no existing video was touched: CharacterRow, MergeTable, VocabWall and
+  GhostCircuit are local one-offs, per the promotion rule. If the "Forcing
+  JSON" episode wants CharacterRow, that is when it moves, with a test.
+
+  LIB USED AS-IS. chat_ui.{ChatWindow,StreamingBubble}, tokens.{TokenStrip,
+  TokenChip}, factory.{Station,PipelineBox,Conveyor}, stacked.SegmentedBar,
+  camera, motion, routing, typography, effects, theme. No hex strings, no raw
+  font_size, no self.play without a rate_func from lib.motion.
+
+  ONE FINDING THAT AFFECTS THE HARNESS, NOT JUST THIS VIDEO
+  `scenes/props.py` is now a COLLIDING module name. A video's scenes/ goes on
+  sys.path as a flat namespace when a deck or `manim render <path>` loads it,
+  so `videos/tokenization/scenes/props.py` resolved to
+  `videos/chatgpt_request_lifecycle/scenes/props.py` — whichever imported
+  first wins. It failed tests/test_slides_convention.py with an ImportError
+  that the test's module cache turned into the much less helpful "should
+  define exactly one ClickDeck subclass, found []". This video's module is
+  `tokenizer_props.py`. Worth considering: scripts/new_video.py could warn, or
+  the convention test could assert scene-module names are globally unique.
+  Not done here — it is a harness change and this session's brief was a video.
+
+  DECK TOOLING. `manim-slides convert --offline` again needed its Reveal.js
+  cache primed by hand (docs/slides.md §4 predicted this exactly). The npm
+  tarball at registry.npmjs.org IS reachable through the agent proxy, so the
+  six files can be fetched from there:
+    curl -sSO https://registry.npmjs.org/reveal.js/-/reveal.js-6.0.1.tgz
+    tar xzf reveal.js-6.0.1.tgz
+    cp package/dist/{reveal.css,reveal.js} \
+       package/dist/theme/black.css \
+       package/dist/plugin/{markdown.js,notes.js} \
+       package/dist/plugin/highlight/zenburn.css \
+       ~/.cache/manim-slides/revealjs6.0.1/
+  That is a concrete recipe docs/slides.md does not yet carry; a future session
+  could fold it in.
+
+  OPEN / WEAK — the honest list is in
+  videos/tokenization/claude-progress.txt. The one worth surfacing here: the
+  film draws a chip that reads `r` (the real ` r` token, 428) two places from
+  the `strawberry` chip, because display_token trims the leading space. The
+  film's claim is scoped to the word and the counter is labelled, but nobody
+  who had not read the script has watched it. Tracked as
+  `space-glyph-readability`, priority 12 in that video's feature_list.json.

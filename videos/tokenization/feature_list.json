@@ -1,0 +1,169 @@
+{
+  "video": "Tokenization: why the model never reads your words",
+  "slug": "tokenization",
+  "note": "Arc 1 Episode 1. One continuous 59.5s shot. Status is the only field a steady-state session flips. Never reword or delete acceptance criteria to make something pass - that is a correctness bug, not a shortcut.",
+  "statuses": ["planned", "in_progress", "failing", "passing"],
+  "features": [
+    {
+      "id": "verified-numbers",
+      "priority": 1,
+      "title": "Every id on screen is a verified tiktoken output, in one block",
+      "module": "scenes/tokenizer_set.py",
+      "status": "passing",
+      "acceptance": [
+        "ENCODING, VOCAB_SIZE, QUESTION, WORD, SENTENCE_TOKENS, SENTENCE_IDS, WORD_TOKENS, WORD_IDS live in one module-level block and every beat imports them",
+        "TokenStrip is never allowed to invent an id with fake_token_id - token_ids is passed explicitly",
+        "The vocabulary counter is rounded from VOCAB_SIZE in code, not typed",
+        "The four illustrative figures each carry the word on screen or are named as ours",
+        "Provenance of the encoding files, and how the mirror was authenticated, is recorded in script.md"
+      ]
+    },
+    {
+      "id": "tokenizer-set",
+      "priority": 2,
+      "title": "The set: a bench read left to right, with one consequence spur",
+      "module": "scenes/tokenizer_set.py",
+      "status": "passing",
+      "acceptance": [
+        "Five bays on the bench line plus the wall above the table and the meter below it",
+        "Every travel path is built from the drawn rails via routing.join, never from bay centres",
+        "validate() asserts the bench run and the spur clear what they must, at construction",
+        "The pull-back width is derived and asserted against SHOT_WIDE within 12%",
+        "The shrink factor that puts the bench inside the ghost node is derived from the node, not typed"
+      ]
+    },
+    {
+      "id": "local-props",
+      "priority": 3,
+      "title": "CharacterRow, MergeTable, VocabWall, GhostCircuit as local one-offs",
+      "module": "scenes/tokenizer_props.py",
+      "status": "passing",
+      "acceptance": [
+        "None of the four is promoted into /lib - they move only when a second scene needs one, with a test",
+        "CharacterRow derives its cells from the question string and counts its own r cells, scoped to a word",
+        "MergeTable finds each merge pair by what its cells currently spell, so no index is written down",
+        "GhostCircuit is ten faint nodes and one label, and does not import chatgpt_request_lifecycle",
+        "The module is NOT named props.py - that name is already taken on the flat scene path"
+      ]
+    },
+    {
+      "id": "shot-open",
+      "priority": 4,
+      "scene_class": "TheTokenizer",
+      "title": "0.0-11.5s: the wrong answer, the character row, and the wipe",
+      "status": "passing",
+      "acceptance": [
+        "The cold open holds still long enough for the wrong answer to feel wrong",
+        "The question leaves the bubble along the drawn rail, not a line between centres",
+        "Exactly the three r cells inside strawberry pulse; the standalone r in r's does not",
+        "The counter is labelled r in \"strawberry\" - 3, never a bare 3",
+        "At the end of the wipe all 27 cells are dark and the counter has gone with them"
+      ]
+    },
+    {
+      "id": "shot-split",
+      "priority": 5,
+      "scene_class": "TheTokenizer",
+      "title": "11.5-21.0s: seven chips, the leading space, the strawberry punchline",
+      "status": "passing",
+      "acceptance": [
+        "SEVEN chips, not the brief's nine, and ' strawberry' is one of them",
+        "The leading space is shown once, on an enlarged chip, with a caption saying what it means",
+        "The bare word's three pieces and the single sentence chip are on screen together",
+        "The row is whole again and both captions are gone by 21.0s",
+        "Every arrival is a FadeIn - nothing comes in on .animate.set_opacity"
+      ]
+    },
+    {
+      "id": "shot-table",
+      "priority": 6,
+      "scene_class": "TheTokenizer",
+      "title": "21.0-33.5s: the vocabulary wall, three worked merges, the ramp",
+      "status": "passing",
+      "acceptance": [
+        "The wall reads as texture with one readable counter beside it",
+        "Three merges each highlight their pair, close it up, and write onto the ordered list",
+        "The merge example is captioned as ours, not as the BPE paper's",
+        "The ramp accelerates out of legibility and is ONE click in the deck",
+        "merge 50,000 carries the word illustrative"
+      ]
+    },
+    {
+      "id": "shot-ids",
+      "priority": 7,
+      "scene_class": "TheTokenizer",
+      "title": "33.5-40.0s: seven integers through the model wall",
+      "status": "passing",
+      "acceptance": [
+        "The integer faces are built from the strip's own token_ids - there is no second list",
+        "5299 1991 428 885 306 101830 30, and every digit matches the pre-flight",
+        "The row travels a routing.join path built from the drawn rail, through the slot",
+        "Past the wall there is no text anywhere, only vectors",
+        "The struck-through word and the integer that actually crossed are shown together"
+      ]
+    },
+    {
+      "id": "shot-meter",
+      "priority": 8,
+      "scene_class": "TheTokenizer",
+      "title": "40.0-51.0s: price, context, latency, and three languages",
+      "status": "passing",
+      "acceptance": [
+        "The Burmese bar overruns the frame edge and is allowed to leave the shot",
+        "The median/MASSIVE/cl100k_base caption is on screen and above MIN_READABLE at SHOT_METER",
+        "The price row shows the unit and no figures",
+        "The context bar says illustrative on screen",
+        "The station header does not collide with the counters"
+      ]
+    },
+    {
+      "id": "shot-pullback",
+      "priority": 9,
+      "scene_class": "TheTokenizer",
+      "title": "51.0-59.5s: the whole bench, then one bay of the Arc 0 plant",
+      "status": "passing",
+      "acceptance": [
+        "Every bay and the bottom of the meter are inside the wide frame",
+        "Bay marquees are readable and nothing is clipped at the frame edge",
+        "The SET scales into the ghost node - the camera does not move",
+        "The shrunken bench is INSIDE the TOKENIZER node, not merely near it",
+        "The film ends on a trailing hold, so the deck's last stop rests past the final fade"
+      ]
+    },
+    {
+      "id": "deck",
+      "priority": 10,
+      "title": "The click-advanced deck",
+      "module": "slides.py",
+      "status": "passing",
+      "acceptance": [
+        "Subclasses the film and defines no construct of its own",
+        "47 animations -> 40 stops, one suppressed region",
+        "The ramp is recognised by the mobject it animates, never by a play index",
+        "No stop is a single frame at the Evaluator's render profile"
+      ]
+    },
+    {
+      "id": "narration-pass",
+      "priority": 11,
+      "title": "Lock timing against a recorded voice-over",
+      "status": "planned",
+      "acceptance": [
+        "Narration is recorded and its per-beat timings measured",
+        "run_time values move to land beats on the narration, not the other way round",
+        "Total runtime stays under the 60.0s cap at the final profile"
+      ]
+    },
+    {
+      "id": "space-glyph-readability",
+      "priority": 12,
+      "title": "Check whether the bare ' r' chip misreads as a piece of strawberry",
+      "status": "planned",
+      "note": "The sentence's ' r' token (428) renders as a bare 'r' chip two places from the strawberry chip, because display_token trims the leading space. The film's claim is scoped correctly and the counter is labelled, but a first-time viewer has not been tested on it. Worth a second pair of eyes before this ships publicly; the cheap fix if it does misread is show_space=True on the whole B2 row.",
+      "acceptance": [
+        "Someone who has not read the script watches B1-B2 and is asked what the 'r' chip is",
+        "If it misreads, the row is redrawn with show_space=True and the frames re-reviewed"
+      ]
+    }
+  ]
+}

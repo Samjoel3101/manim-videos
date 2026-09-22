@@ -1,0 +1,112 @@
+# Progress log — Tokenization: why the model never reads your words
+
+Newest entry last. One entry per session: what you did, what you tried that did not work, and what the next session should pick up.
+
+--------------------------------------------------------------------
+SETUP — project scaffolded by scripts/new_video.py. No scenes yet.
+
+--------------------------------------------------------------------
+SESSION — built the whole film. Arc 1 Ep 1 shipped: one continuous 59.50s shot,
+`TheTokenizer`, five Evaluator gates green, `final` render measured at 59.500s
+(3570 frames at 60fps) against a 60.0s cap, deck at 47 animations -> 40 stops.
+
+WHAT WAS VERIFIED AGAINST tiktoken, AND HOW
+  The encodings could not be fetched from `openaipublic.blob.core.windows.net`
+  (blocked by the environment's network policy). They came from a third-party
+  mirror (`pkoukk/tiktoken-go-loader`) and were then AUTHENTICATED against the
+  SHA-256 `expected_hash` values hardcoded in `tiktoken_ext/openai_public.py`:
+  both `cl100k_base.tiktoken` (223921b7...865b2a7) and `o200k_base.tiktoken`
+  (446a9538...cfb1a2d) matched, so the files are byte-identical to what OpenAI
+  serves. Cross-checked: cl100k_base encodes "hello world" to [15339, 1917].
+  This pre-flight was done BEFORE this session and handed over in the plan; it
+  was not re-run here, because the encoding host is unreachable from here.
+
+  Verified and on screen: o200k_base; n_vocab 200,019 drawn as "≈ 200,000";
+  the seven sentence ids 5299/1991/428/885/306/101830/30; the bare word's
+  302/1618/19772. Nothing ships as an invented id — `TokenStrip` is always
+  given `token_ids=` explicitly so `fake_token_id` never runs.
+
+  Shipped as ILLUSTRATIVE, each marked on screen: the l-o-w merge example
+  ("worked example · not the paper's"), "merge 50,000 · illustrative", the
+  "128,000" context bar ("illustrative"), and the price row, which shows the
+  unit "$ / 1M tokens · in · out" with no figures at all, on purpose.
+
+THE BRIEF'S NINE-CHIP ROW WAS WRONG, AND WHY B2/B4 WERE RESPECIFIED
+  The brief's beats 2 and 4 draw nine chips with `st|raw|berry` among them. In
+  the real sentence the word carries a leading space and ` strawberry` is ONE
+  vocabulary entry, id 101830; the sentence is SEVEN tokens. The three-piece
+  split exists only for the bare word. The brief's own ruling was "change the
+  chips, not the claim", and the claim survives in a stronger form: the whole
+  word — all three r's — is one opaque integer with no piece boundary near
+  them. B2 now lands the leading-space rule and the punchline as one gesture
+  (the same ten letters are 101830 with a space and 302·1618·19772 without,
+  both on screen together); B4 flips seven integers, not nine.
+
+  Also corrected: the question is 27 characters and contains FOUR r's, not the
+  brief's 26 and three. The fourth is the standalone `r` in `r's`. Both the
+  pulse and the assertion are scoped to the word, and the counter is labelled
+  `r in "strawberry" — 3` rather than a bare 3.
+
+WHAT IS LEFT WEAK — read this before "fixing" anything
+  * THE SENTENCE CONTAINS A CHIP THAT READS `r`. It is the ` r` of `r's`,
+    token 428, and it is real. `display_token` trims the leading space, so it
+    draws as a bare `r` two places from the `strawberry` chip. A literal
+    reading of the brief's "no piece is a bare r" therefore does not hold on
+    screen. The claim the film makes is scoped correctly and the counter is
+    labelled, but NOBODY HAS WATCHED THIS WHO HAD NOT READ THE SCRIPT. Tracked
+    as `space-glyph-readability` in feature_list.json. The cheap fix if it does
+    misread is `show_space=True` on the whole B2 row.
+  * The deck splits into 40 stops; the plan expected 45-55. Nothing arrives via
+    `.animate.set_opacity` (the diagnostic the plan named) — the film simply has
+    47 non-wait plays, and four clear-downs merge forward. Chunk times were read
+    one by one and every merge rests on content, not on a cleared bay.
+  * The closing shrink is 0.056, not the brief's ~0.11. The ghost circuit is
+    height-bound by the wide frame, so the node is smaller than assumed. The
+    factor is derived from the node radius, not typed.
+  * `manim-slides convert --offline` needed its Reveal.js cache primed by hand
+    (the CDN is blocked). Six files from the reveal.js 6.0.1 npm tarball into
+    `~/.cache/manim-slides/revealjs6.0.1/`, exactly as docs/slides.md describes.
+    That cache is NOT in the repo, so a fresh container has to do it again.
+  * B5's `10×` stamp and the re-read counters sit under the METER marquee at
+    the wide shot; they are dimmed to 0.2 so the marquee reads, but the bars
+    are not, and "METER" crosses the Hindi bar. Judged acceptable, not fixed.
+  * No voice-over pass. Timings are the brief's budget, not narration-locked.
+
+BUGS FOUND BY LOOKING AT FRAMES THAT NO GATE SAW
+  1. The METER station's header drew straight through the price counter row.
+     Bay is now 7.0 tall and the counters moved down.
+  2. The "QUESTION" wide-shot marquee overflowed the frame edge — it is now
+     clamped to the chat's width, the way Station clamps its own.
+  3. The vocabulary wall was off the spur that feeds it: `move_to` had centred
+     the whole prop, readout included. Re-anchored on the frame.
+  4. MERGE 2 DREW ON TOP OF MERGE 1. Collapsing a merged pair into one
+     bookkeeping entry left the `o` box still drawn between the `l` and the `w`
+     that merge 2 then slid together. A merge cell is now a RUN of drawn units.
+  5. The ordered list hung past the right edge of the table bay: entries were
+     created AFTER `station.fit`, so the fit never scaled them. Everything the
+     prop will draw is now built in its constructor and detached afterwards.
+  6. The bench only just fitted inside the TOKENIZER node (corners flush with
+     the circle). Shrink margin tightened from 0.92 to 0.80 of the radius.
+  7. The wall's decorative pieces repeated in a visible block every five rows.
+  8. "counted, not chosen" was drawn through by the meter spur at x=0.
+
+TRAPS WORTH REMEMBERING
+  * `scenes/props.py` COLLIDES. A video's `scenes/` goes on sys.path as a flat
+    namespace, and `chatgpt_request_lifecycle/scenes/props.py` already owns the
+    name; the second one silently resolves to whichever imported first, which
+    failed the `unit` gate with an ImportError swallowed into "found []". This
+    video's is `tokenizer_props.py`.
+  * A prop parked at `set_opacity(0)` cannot be brought in with `FadeIn` — the
+    fade targets the opacity it already carries, i.e. nothing. Staged props are
+    DETACHED from the set group instead and added by their own beat.
+  * The B6 set-shrink is `Transform(bench, bench.copy().scale(...))`, not
+    `bench.animate.scale(...)`: a VGroup carries its own transparent rgba and
+    animating one drags every child's opacity down. A copy has identical rgba
+    at every node, so the interpolation is a pure move.
+  * The deck's `_sticky_play` matches `FadeIn` OF a `RampTicker`, not the
+    mobject alone. Matching the mobject also caught B4's clear-down, which
+    fades the last ticker out, and opened a phantom second region.
+
+NEXT SESSION
+  Highest-priority open item is `space-glyph-readability` (get a fresh pair of
+  eyes on the bare `r` chip), then `narration-pass`.
