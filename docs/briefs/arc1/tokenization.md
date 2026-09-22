@@ -15,7 +15,7 @@ a bench rather than a plant, but the motion language is identical.
 
 Narration, the reasoning behind every claim, and the reference list live in the
 content repo: `Samjoel3101/content` →
-`videos/ai-system-design/content/tokenization/`. The beat numbers B0–B6 are the
+`videos/ai-system-design/arc1/tokenization/`. The beat numbers B0–B6 are the
 same in all three documents.
 
 ---
