@@ -434,10 +434,15 @@ class Tokenization(MovingCameraScene):
 
         # 21.50 (0.70) — the three go back to being one, and the beat clears its
         # own props before the camera leaves.
+        # docs/slides.md rule 4: the chip is ARRIVING, so it enters with FadeIn.
+        # FadeIn animates up to a mobject's CURRENT opacity, so the final state
+        # is set first and the fade runs 0 -> that. The drop back into the row
+        # happens while it is invisible, which is why it is not animated.
+        s.word_chip.set_opacity(1.0).shift(DOWN * 0.3)
         self.play(
             FadeOut(pieces, target_position=s.word_chip.get_center(), scale=0.4),
             FadeOut(three_caption),
-            s.word_chip.animate.set_opacity(1.0).shift(DOWN * 0.3),
+            FadeIn(s.word_chip),
             s.glow_for(s.split).animate.set_stroke(opacity=s.resting_glow),
             run_time=0.70,
             rate_func=motion.EXIT,

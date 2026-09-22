@@ -41,7 +41,7 @@ class SlidesTokenization(ClickDeck, Slide, Tokenization):
     """
 
     EXPECTED_ANIMATIONS = 45
-    EXPECTED_STOPS = 40
+    EXPECTED_STOPS = 42
 
     def merge_ramp(self) -> None:
         """Beat 3's runaway merge list as ONE click.

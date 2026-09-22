@@ -404,8 +404,11 @@ class GhostCircuit(VGroup):
         self.add(self.nodes)
 
         self.host = self.nodes[self.HOST_INDEX]
+        # "heading", not "title": at title it came out wider than the node and
+        # read as a card title for the whole frame rather than the name of one
+        # bay, which flattens the "this is one bay of a bigger plant" gesture.
         self.label = typography.text(
-            "title", "TOKENIZER", frame_width=frame_width,
+            "heading", "TOKENIZER", frame_width=frame_width,
             color=theme.TOKEN, bold=True,
         )
         self.label.next_to(self.host, UP, buff=theme.PAD_MD)

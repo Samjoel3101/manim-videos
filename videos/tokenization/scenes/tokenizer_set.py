@@ -46,7 +46,7 @@ Three things about this shape are decisions, not accidents:
 from __future__ import annotations
 
 import numpy as np
-from manim import DOWN, LEFT, RIGHT, UP, VGroup
+from manim import DOWN, LEFT, RIGHT, UP, FadeIn, VGroup
 
 from lib import effects, routing, theme, typography
 from lib.components.chat_ui import ChatWindow
@@ -444,17 +444,29 @@ class TokenizerSet(VGroup):
         )
         self.ghost = GhostCircuit(frame_width=SHOT_WIDE, host_size=host)
         self.ghost.move_to(self.everything.get_center())
-        #: 15%, set here rather than animated to: `FadeIn` restores a mobject to
-        #: the opacity it already carries, so "assembles at 15%" means the prop
-        #: is BUILT at 15% and faded in from nothing. The label keeps its own
-        #: full opacity — it lights separately, one beat later.
-        # Fill at 15%, stroke at 45%. A flat 15% on both put ten dark-filled
-        # boxes on a dark background and the circuit did not read at all — the
-        # gesture has to be legible enough to be recognised as the last film's
-        # plant, which is the only reason it is on screen.
+        #: Set here rather than animated to: `FadeIn` restores a mobject to the
+        #: opacity it already carries, so the prop is BUILT at its resting
+        #: values and faded in from nothing. The label keeps its own full
+        #: opacity — it lights separately, one beat later.
+        #:
+        #: The first cut filled these with BG_ELEVATED at 15% and measured
+        #: **1.03:1** against the background — arithmetically invisible,
+        #: because 15% of a near-black over a near-black is still the
+        #: background, and the closing gesture simply did not land. In a dark
+        #: theme the stroke is what gives a ghost its shape, not the fill, so
+        #: the body sits at SURFACE and the outline carries the contrast.
+        #: If you touch these, re-measure on an actual frame.
         self.ghost.rail.set_stroke(opacity=0.45)
-        self.ghost.nodes.set_fill(opacity=0.15)
-        self.ghost.nodes.set_stroke(opacity=0.45)
+        self.ghost.nodes.set_fill(theme.SURFACE, opacity=1.0)
+        self.ghost.nodes.set_stroke(theme.FG_MUTED, opacity=0.55)
+        # The host is the bay this whole film lives in. It keeps its own accent
+        # and lights to full at 55.3s, so it must not be dimmed with the rest.
+        self.ghost.host.set_stroke(theme.TOKEN, opacity=0.55)
+        # And it is a FRAME, not a filled box: the shrunken bench comes to rest
+        # inside it, and an opaque fill drawn over the top hides the one thing
+        # the whole shot exists to show. Giving the other nine a solid body and
+        # forgetting this cost exactly that on the first pass.
+        self.ghost.host.set_fill(opacity=0.0)
 
         self.validate()
 
@@ -714,7 +726,22 @@ class TokenizerSet(VGroup):
         `Station.reveal_wide` fades text on fill and icons on stroke — do not
         "simplify" it into one `set_opacity`, or every icon returns as a blob.
         """
-        anims = [self.wide_labels.animate.set_opacity(opacity)]
+        # docs/slides.md rule 4: arriving content enters with FadeIn. Raising
+        # opacity here made the deck read this play as a clear-down and merge
+        # the wide diagram forward, costing the film's summary frame its stop.
+        # `wide_labels` is BUILT at opacity 0 so it stays invisible until the
+        # pull-back, and `FadeIn` animates up to a mobject's CURRENT opacity —
+        # so it must be given its target state first or it fades 0 -> 0 and the
+        # marquees never appear. (They did not, on the first pass at this fix,
+        # with all five gates green. Look at the frame.)
+        self.wide_labels.set_opacity(opacity)
+        anims = [FadeIn(self.wide_labels)]
+        # A Station empties itself for the wide shot; the vocabulary wall is not
+        # a Station and kept drawing all 126 cells under its own marquee. Dim
+        # them so the label reads, and leave the counter alone - at this
+        # distance "= 200,000" is the only part of the wall that still means
+        # anything.
+        anims.append(self.vocab.cells.animate.set_opacity(0.18))
         # The chat is not a Station and has none of Station's cross-fade
         # machinery, so it gets the same treatment by hand: its close-up
         # furniture goes dark as its pull-back name comes up, leaving an empty

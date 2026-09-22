@@ -52,3 +52,22 @@ context bar and `$ / 1M tokens` are SCHEMATIC — deliberately carrying no figur
 because a real price dates the film within weeks. The three worked merges
 (`l+o`, `lo+w`, `e+s`) are ILLUSTRATIVE, in the shape of the BPE paper's example,
 and the film does not claim they are `o200k_base`'s first three.
+
+REVIEW FIXES (2026-09-22) - four defects from the independent review, all
+frame-verified. Two were docs/slides.md rule-4 violations (arriving content
+raising opacity instead of FadeIn); fixing them recovered two deck stops,
+40 -> 42, including the wide-diagram summary frame. The vocabulary wall now
+dims for the pull-back the way a Station empties, so its marquee reads. The
+Arc 0 ghost measured 1.03:1 against BG and was invisible; body to SURFACE,
+outline to FG_MUTED.
+
+TWO REGRESSIONS I INTRODUCED AND CAUGHT BY LOOKING AT FRAMES, both with all
+five gates green:
+  1. Filling every ghost node opaquely hid the shrunken bench inside the host
+     node - the one thing the closing shot exists to show. The host is a
+     frame, not a box.
+  2. FadeIn(wide_labels) faded 0 -> 0, because the labels are BUILT at opacity
+     0 and FadeIn restores to CURRENT opacity. QUESTION, VOCABULARY and THE
+     MODEL vanished from the entire pull-back. Set the target state first.
+Both are the same hazard already documented in this file. Reading it was not
+enough; the frame was.
